@@ -14,7 +14,7 @@ func runClients(host string, port, clientsNum int) {
 	var wg sync.WaitGroup // want to wait until all clients would be done
 	wg.Add(clientsNum)
 
-	for i := 0; i < clientsNum ;i++ {
+	for i := 0; i < clientsNum; i++ {
 		name := "Pogrebenko_" + strconv.Itoa(i)
 		go clientRunner(&wg, host, name, port)
 	}
@@ -26,14 +26,18 @@ func runClients(host string, port, clientsNum int) {
 func clientRunner(wg *sync.WaitGroup, host, name string, port int) {
 	defer wg.Done()
 
-	if err := client.NewClient(host, port).Connect(name); err != nil{
+	if err := client.NewClient(host, port).Connect(name); err != nil {
 		log.Println(err)
 	}
 }
 
+// Same as with Server, I was in hurry :-)
+// I did some base testing of the slient\server,
+// hope there is no bugs.
+
 func main() {
 	config := cli.ParseArgs()
-	log.SetFlags(log.LstdFlags|log.Lshortfile|log.Lmicroseconds)
+	log.SetFlags(log.LstdFlags | log.Lshortfile | log.Lmicroseconds)
 
 	runClients(config.Host, config.Port, config.Clients)
 }

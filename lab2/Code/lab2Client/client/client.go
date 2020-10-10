@@ -12,7 +12,7 @@ import (
 	"syscall"
 )
 
-// Server - simple websocket server.
+// Client - simple websocket server.
 type Client struct {
 	protocol string
 	host string
