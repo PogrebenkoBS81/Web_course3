@@ -10,16 +10,16 @@ import (
 // So i dont think that sync should be here.
 type TimeManager struct {
 	interval int
-	started time.Time
-	ticker *time.Ticker
+	started  time.Time
+	ticker   *time.Ticker
 }
 
 // newTimeManager - returns a new time manager.
 func newTimeManager(interval int) *TimeManager {
 	return &TimeManager{
 		interval: interval,
-		started: time.Now(),
-		ticker: new(time.Ticker),
+		started:  time.Now(),
+		ticker:   new(time.Ticker),
 	}
 }
 
@@ -32,5 +32,5 @@ func (t *TimeManager) startTimer() {
 
 // Returns time from timer start.
 func (t *TimeManager) getTime() int64 {
-	return int64(time.Since(t.started).Seconds())
+	return t.started.Unix()
 }

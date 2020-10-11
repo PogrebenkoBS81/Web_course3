@@ -12,19 +12,19 @@ import (
 	"syscall"
 )
 
-// Client - simple websocket server.
+// Client - simple websocket client.
 type Client struct {
 	protocol string
-	host string
-	port int
+	host     string
+	port     int
 }
 
 // NewClient - returns a new websocket client.
 func NewClient(host string, port int) *Client {
 	return &Client{
 		protocol: "tcp",
-		host: host,
-		port: port,
+		host:     host,
+		port:     port,
 	}
 }
 
@@ -38,7 +38,7 @@ func (c *Client) Connect(ID string) error {
 	}
 	// I usually use helper function, but don't want to call it only once.
 	defer func() {
-		if err := conn.Close(); err  != nil {
+		if err := conn.Close(); err != nil {
 			log.Println(err)
 		}
 	}() // dont want to loose possible error
@@ -81,7 +81,7 @@ func (c *Client) waitForMessage(ctx context.Context, data <-chan *response, ID s
 func (c *Client) send(conn net.Conn, clientID string) error {
 	log.Println("Sending id:", clientID)
 	req := &request{
-		ClientId: clientID,
+		ClientName: clientID,
 	}
 
 	bts, err := xml.Marshal(req)
@@ -92,7 +92,7 @@ func (c *Client) send(conn net.Conn, clientID string) error {
 	writer := bufio.NewWriter(conn)
 
 	_, err = writer.Write(bts)
-	if  err != nil {
+	if err != nil {
 		return err
 	}
 
@@ -100,7 +100,7 @@ func (c *Client) send(conn net.Conn, clientID string) error {
 }
 
 // messageChecker - waits for message
-func (c *Client) messageChecker(conn net.Conn, cancel context.CancelFunc,  data chan <-*response) {
+func (c *Client) messageChecker(conn net.Conn, cancel context.CancelFunc, data chan<- *response) {
 	connReader := bufio.NewReader(conn) // don't want to recreate reader over and over again
 
 	for {
@@ -123,8 +123,8 @@ func (c *Client) prettyPrint(clientId string, resp *response) {
 
 	message := clientId + " received:"
 	for _, c := range resp.Clients {
-		message += fmt.Sprintf("\n Client: %s; ClientConnected: %d; Timer: %d;",
-			c.ClientId, c.ClientTime, c.TimerTime)
+		message += fmt.Sprintf("\n Client: %s; IP: %s, Connected: %d; Timer: %d;",
+			c.Name, c.IP, c.Connected, resp.Timer)
 	}
 
 	log.Println(message)

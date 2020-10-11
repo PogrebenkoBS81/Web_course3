@@ -6,8 +6,8 @@ import (
 
 // Config - config with server host/port
 type Config struct {
-	Host string
-	Port int
+	Host     string
+	Port     int
 	Interval int
 }
 
@@ -38,9 +38,8 @@ func ParseArgs() *Config {
 	}
 
 	return &Config{
-		Host: *fHost,
-		Port: *fPort,
+		Host:     *fHost,
+		Port:     *fPort,
 		Interval: *fInterval,
 	}
 }
-

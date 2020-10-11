@@ -26,21 +26,21 @@ type Server struct {
 	*TimeManager
 	*ClientManager
 	protocol string
-	host string
-	port int
+	host     string
+	port     int
 }
 
 // NewServer - returns a new websocket server.
 func NewServer(host string, port, interval int) *Server {
 	return &Server{
-		TimeManager : newTimeManager(interval),
+		TimeManager:   newTimeManager(interval),
 		ClientManager: newClientManager(),
 		// It's possible to pass it via CLI and validate it,
 		// but there was nothing about protocol type it in lab,
 		// so i don't want to experiment
 		protocol: "tcp",
-		host: host,
-		port: port,
+		host:     host,
+		port:     port,
 	}
 }
 
@@ -55,7 +55,7 @@ func (s *Server) Run() error {
 	}
 	// I usually use helper function, but don't want to call it only once.
 	defer func() {
-		if err := listener.Close(); err  != nil {
+		if err := listener.Close(); err != nil {
 			log.Println(err)
 		}
 	}() // dont want to loose possible error
@@ -69,7 +69,7 @@ func (s *Server) Run() error {
 }
 
 // handleConnections - handles incoming connections
-func (s *Server) handleConnections(ctx context.Context, listener net.Listener)  {
+func (s *Server) handleConnections(ctx context.Context, listener net.Listener) {
 	conns := make(chan net.Conn, 1)
 	go s.waitForClient(listener, conns)
 
@@ -82,7 +82,7 @@ func (s *Server) handleConnections(ctx context.Context, listener net.Listener)  
 			log.Println("Exit call...")
 
 			return
-		case c := <- conns:
+		case c := <-conns:
 			// Start timer only once, when first successful connection is established.
 			// (there was nothing in the task about stopping the timer, when there is no clients)
 			doOnce.Do(func() {
@@ -96,7 +96,7 @@ func (s *Server) handleConnections(ctx context.Context, listener net.Listener)  
 }
 
 // updater - updates client list and sends the notification to all routines to send it.
-func (s *Server) updater(ctx context.Context)  {
+func (s *Server) updater(ctx context.Context) {
 	for {
 		select {
 		// Same as handleConnections
@@ -116,7 +116,7 @@ func (s *Server) updater(ctx context.Context)  {
 
 // waitForClient - waits for the incoming connections
 // if connection is successful - sends it to the connection handler
-func (s *Server) waitForClient(listener net.Listener, conns chan<-net.Conn) {
+func (s *Server) waitForClient(listener net.Listener, conns chan<- net.Conn) {
 	for {
 		c, err := listener.Accept()
 		if err != nil {
@@ -146,9 +146,9 @@ func (s *Server) handleClient(ctx context.Context, conn net.Conn) {
 }
 
 // processClient - processes client connection
-func (s *Server) processClient(ctx context.Context, conn net.Conn, ready<-chan bool) {
+func (s *Server) processClient(ctx context.Context, conn net.Conn, ready <-chan bool) {
 	// don't want to recreate writer over and over again inside the "writeToSocket"
-	connWriter :=  bufio.NewWriter(conn)
+	connWriter := bufio.NewWriter(conn)
 
 	for {
 		select {
@@ -156,7 +156,7 @@ func (s *Server) processClient(ctx context.Context, conn net.Conn, ready<-chan b
 			log.Println("Shutting down...")
 
 			return
-		case <- ready:
+		case <-ready:
 			if err := s.writeToSocket(connWriter, s.getClients()); err != nil {
 				return
 			}
@@ -199,7 +199,7 @@ func (s *Server) cleanClient(conn net.Conn, clientHash string) {
 // writeToSocket - writes data to socket
 func (s *Server) writeToSocket(writer *bufio.Writer, bts []byte) error {
 	_, err := writer.Write(bts)
-	if  err != nil {
+	if err != nil {
 		return err
 	}
 
@@ -207,7 +207,7 @@ func (s *Server) writeToSocket(writer *bufio.Writer, bts []byte) error {
 }
 
 // readRequest - reads request from client
-func (s *Server) readRequest(conn net.Conn) (*request, error){
+func (s *Server) readRequest(conn net.Conn) (*request, error) {
 	// Only one message from client would be sent,
 	// so create reader right here.
 	reader := bufio.NewReader(conn)

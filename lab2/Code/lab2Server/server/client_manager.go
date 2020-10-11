@@ -17,29 +17,30 @@ import (
 // to avoid recalculations and remarshalling the same data for each client
 // It's bad too, anyway. Marshalling data by each routine is fine, as far as i now.
 type ClientManager struct {
-	clients map[string]*clientData // hash is used to avoid collisions.
+	clients    map[string]*clientData // hash is used to avoid collisions.
 	clientsXML []byte
-	mutex  *sync.Mutex
+	mutex      *sync.Mutex
 }
 
 // ClientData - manages the incoming clients.
 type clientData struct {
-	ready chan<-bool
-	name string
-	time int64
+	ready chan<- bool
+	name  string
+	ip    string
+	time  int64
 }
 
 // newClientManager - returns a new client manager.
 func newClientManager() *ClientManager {
 	return &ClientManager{
 		clientsXML: nil,
-		clients: make(map[string]*clientData),
-		mutex: &sync.Mutex{},
+		clients:    make(map[string]*clientData),
+		mutex:      &sync.Mutex{},
 	}
 }
 
 // addClient - adds new client to the map by the generated hash.
-func (c *ClientManager) addClient(clientName, clientAddr string, ch chan<-bool) string {
+func (c *ClientManager) addClient(clientName, clientAddr string, ch chan<- bool) string {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -52,8 +53,9 @@ func (c *ClientManager) addClient(clientName, clientAddr string, ch chan<-bool) 
 
 	c.clients[hash] = &clientData{
 		ready: ch,
-		name: clientName,
-		time: time.Now().Unix(),
+		name:  clientName,
+		ip:    clientAddr,
+		time:  time.Now().Unix(),
 	}
 
 	return hash
@@ -108,14 +110,18 @@ func (c *ClientManager) updateClients(time int64) (err error) {
 
 	for _, d := range c.clients {
 		clientsList[idx] = &client{
-			ClientName: d.name,
-			ClientTime: d.time,
-			TimerTime: time,
+			Connected: d.time,
+			Name:      d.name,
+			IP:        d.ip,
 		}
 
 		idx++
 	}
 
-	c.clientsXML, err = xml.Marshal(&response{Clients: clientsList})
+	c.clientsXML, err = xml.Marshal(&response{
+		Clients: clientsList,
+		Timer:   time,
+	})
+
 	return
 }
