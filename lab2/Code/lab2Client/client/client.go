@@ -3,6 +3,7 @@ package client
 import (
 	"bufio"
 	"context"
+	"encoding/binary"
 	"encoding/xml"
 	"fmt"
 	"log"
@@ -31,11 +32,11 @@ func NewClient(host string, port int) *Client {
 // Connect - connects to the socket server.
 func (c *Client) Connect(ID string) error {
 	path := fmt.Sprintf("%s:%d", c.host, c.port)
-
 	conn, err := net.Dial(c.protocol, path)
 	if err != nil {
 		return err
 	}
+
 	// I usually use helper function, but don't want to call it only once.
 	defer func() {
 		if err := conn.Close(); err != nil {
@@ -46,7 +47,7 @@ func (c *Client) Connect(ID string) error {
 	log.Println("Connected to", path)
 
 	// send base data to the server
-	if err := c.send(conn, ID); err != nil {
+	if err := c.write(conn, &request{ ClientName: ID}); err != nil {
 		return err
 	}
 
@@ -77,26 +78,39 @@ func (c *Client) waitForMessage(ctx context.Context, data <-chan *response, ID s
 	}
 }
 
-// send - sends message to the server.
-func (c *Client) send(conn net.Conn, clientID string) error {
-	log.Println("Sending id:", clientID)
-	req := &request{
-		ClientName: clientID,
-	}
-
-	bts, err := xml.Marshal(req)
+// write - sends message to the server.
+func (c *Client) write(conn net.Conn, data interface{}) error {
+	bts, err := xml.Marshal(data)
 	if err != nil {
 		return err
 	}
 
-	writer := bufio.NewWriter(conn)
+	if err := c.writeFull(conn, bts); err != nil {
+		return err
+	}
 
-	_, err = writer.Write(bts)
+	return nil
+}
+
+// writeFull - writes full message to socket (required due to reader size limitations).
+func (c *Client) writeFull(conn net.Conn, bts []byte) error {
+	size := len(bts)
+	uintSize := uint32(size)
+
+	base := make([]byte, 4)
+	binary.BigEndian.PutUint32(base, uintSize)
+	base = append(base, bts...)
+
+	// Same as server.
+	writer := bufio.NewWriterSize(conn, size)
+	_, err := writer.Write(base)
+
 	if err != nil {
 		return err
 	}
 
-	return writer.Flush() // maybe, conn.Write() would be enough, but i'd better be sure.
+	// Flush data to be sure that all bts was sent.
+	return writer.Flush()
 }
 
 // messageChecker - waits for message
@@ -104,8 +118,8 @@ func (c *Client) messageChecker(conn net.Conn, cancel context.CancelFunc, data c
 	connReader := bufio.NewReader(conn) // don't want to recreate reader over and over again
 
 	for {
-		resp, err := c.readResponse(connReader)
-		if err != nil {
+		resp := new(response)
+		if err := c.read(connReader, resp); err != nil {
 			log.Println(err)
 			cancel() // ctx.Done() if there is an error
 			return
@@ -130,24 +144,77 @@ func (c *Client) prettyPrint(clientId string, resp *response) {
 	log.Println(message)
 }
 
-// readResponse - reads server response.
-func (c *Client) readResponse(reader *bufio.Reader) (*response, error) {
+// read - reads server response.
+func (c *Client) read(reader *bufio.Reader, data interface{}) error {
+	// get int size from message
+	size, err := c.getSize(reader)
+	if err != nil {
+		return err
+	}
+
+	bts, err := c.readFull(reader, size)
+	if err != nil {
+		return err
+	}
+
+	return xml.Unmarshal(bts, data)
+}
+
+// readFull - reads full message (required due to reader size limitations)
+func (c *Client) readFull(reader *bufio.Reader, msgSize uint32) ([]byte, error) {
+	fullMsg := make([]byte, 0)
+	size := int(msgSize)
+
+	for  {
+		tmpSize := 0 // size of the tmp storage for a part of the message
+		buffSize := reader.Buffered() // max reader size == 4096
+
+		// Find the required size
+		if size > buffSize {
+			tmpSize = buffSize
+		} else {
+			tmpSize = size
+		}
+
+		// Create tmp storage, read bytes into it, and append them to the full message.
+		buff := make([]byte, tmpSize)
+
+		_, err := reader.Read(buff)
+		if err != nil {
+			return nil, err
+		}
+		fullMsg = append(fullMsg, buff...)
+
+		// Break if message is fully read.
+		size -= tmpSize
+		if size == 0 {
+			break
+		}
+
+		// Reader would be empty until peek.
+		if _, err := reader.Peek(1); err != nil {
+			return nil, err
+		}
+	}
+
+	return fullMsg, nil
+}
+
+// getSize - reads first 4 bytes of size
+func (c *Client) getSize(reader *bufio.Reader) (uint32, error) {
 	// Reader would be empty until peek.
 	if _, err := reader.Peek(1); err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	// Create buffer with required size
-	buff := make([]byte, reader.Buffered())
+	btsSize := make([]byte, 4)
 
-	_, err := reader.Read(buff)
+	_, err := reader.Read(btsSize)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	resp := new(response)
-
-	return resp, xml.Unmarshal(buff, resp)
+	return binary.BigEndian.Uint32(btsSize), nil
 }
 
 // handleCancel - handles cancellation.

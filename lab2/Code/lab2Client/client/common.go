@@ -12,6 +12,10 @@ import (
 // If it's necessary to pass real date like "2020\etc",
 // then it could be rewritten in matter of 5-10 minutes.
 
+const (
+	maxBufioSize = 4096
+)
+
 type request struct {
 	XMLName    xml.Name `xml:"Request"`
 	ClientName string   `xml:"ClientName"`
