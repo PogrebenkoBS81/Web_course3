@@ -23,14 +23,19 @@ func newTimeManager(interval int) *TimeManager {
 	}
 }
 
-// Starts ticker, and writes time of its start.
+// startTimer - starts ticker, and writes time of its start.
 func (t *TimeManager) startTimer() {
 	log.Println("Starting ticker with interval:", t.interval)
 	t.ticker = time.NewTicker(time.Second * time.Duration(t.interval))
 	t.started = time.Now()
 }
 
-// Returns time from timer start.
-func (t *TimeManager) getTime() int64 {
+// getTimer - returns time from timer start.
+func (t *TimeManager) getTimer() int64 {
 	return t.started.Unix()
+}
+
+// getTime - returns current time.
+func (t *TimeManager) getTime() int64 {
+	return time.Now().Unix()
 }

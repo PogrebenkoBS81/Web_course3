@@ -34,6 +34,8 @@ type Server struct {
 // NewServer - returns a new websocket server.
 func NewServer(host string, port, interval int) *Server {
 	return &Server{
+		// it's possible to wrap TimeManager and ClientManager with interface,
+		// so they could be easy replaceable, but it would be overkill for this lab
 		TimeManager:   newTimeManager(interval),
 		ClientManager: newClientManager(),
 		// It's possible to pass it via CLI and validate it,
@@ -72,6 +74,8 @@ func (s *Server) Run() error {
 // handleConnections - handles incoming connections
 func (s *Server) handleConnections(ctx context.Context, listener net.Listener) {
 	conns := make(chan net.Conn, 1)
+	// due to all socket operations are blocking, start them in separate routine,
+	// to handle context and graceful shutdown
 	go s.waitForClient(listener, conns)
 
 	for {
@@ -80,7 +84,7 @@ func (s *Server) handleConnections(ctx context.Context, listener net.Listener) {
 		// but it's fine to pass ctx to functions +
 		// in "possible" future there is ability to cancel some operations.
 		case <-ctx.Done():
-			log.Println("Exit call...")
+			log.Println("Exit call connection handler...")
 
 			return
 		case c := <-conns:
@@ -102,11 +106,11 @@ func (s *Server) updater(ctx context.Context) {
 		select {
 		// Same as handleConnections
 		case <-ctx.Done():
-			log.Println("Exit call...")
+			log.Println("Exit call updater...")
 
 			return
 		case <-s.ticker.C:
-			if err := s.updateClients(s.getTime()); err == nil {
+			if err := s.updateClients(s.getTimer()); err == nil {
 				s.notifyClients()
 			} else {
 				log.Println(err)
@@ -142,7 +146,7 @@ func (s *Server) handleClient(ctx context.Context, conn net.Conn) {
 	}
 
 	ready := make(chan bool, 1)
-	hash := s.addClient(req.ClientName, conn.RemoteAddr().String(), ready)
+	hash := s.addClient(req.ClientName, conn.RemoteAddr().String(), s.getTime(), ready)
 	defer s.cleanClient(conn, hash)
 
 	s.processClient(ctx, conn, ready)
@@ -153,17 +157,19 @@ func (s *Server) processClient(ctx context.Context, conn net.Conn, ready <-chan 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Shutting down...")
+			log.Println("Shutting down server...")
 
 			return
 		case <-ready:
+			// Just to avoid remarshaling the same data for every routine,
+			// getClients already returns []byte
 			if err := s.writeFull(conn, s.getClients()); err != nil {
 				log.Println(err)
 
 				return
 			}
 		default:
-			// Ping 1 time in a second, so CPU won't be trashed by infinite loop.
+			// Ping 0.5 time in a second, so CPU won't be trashed by infinite loop.
 			if !s.isAlive(conn) {
 				return
 			}
@@ -171,14 +177,16 @@ func (s *Server) processClient(ctx context.Context, conn net.Conn, ready <-chan 
 	}
 }
 
-// Pings the connection. Waits for 1 second. If no EOF - connection is opened.
+// Pings the connection. Waits for 0.5 second. If no EOF - connection is opened.
 func (s *Server) isAlive(c net.Conn) bool {
 	one := make([]byte, 1)
-	if err := c.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+	if err := c.SetReadDeadline(time.Now().Add(time.Millisecond * 500)); err != nil {
 		log.Println(err)
+
 		return false
 	}
 
+	// client doesn't send anything, so it's fine to Read() instead of Peek()
 	if _, err := c.Read(one); err == io.EOF {
 		return false
 	}
@@ -201,10 +209,8 @@ func (s *Server) cleanClient(conn net.Conn, clientHash string) {
 // writeFull - writes full message to socket (required due to reader size limitations).
 func (s *Server) writeFull(conn net.Conn, bts []byte) error {
 	size := len(bts)
-	uintSize := uint32(size)
-
 	base := make([]byte, 4)
-	binary.BigEndian.PutUint32(base, uintSize)
+	binary.BigEndian.PutUint32(base, uint32(size))
 	base = append(base, bts...)
 
 	// maybe, it will be better to create 1 writer outside the function,
@@ -230,7 +236,7 @@ func (s *Server) read(reader *bufio.Reader, data interface{}) error {
 		return err
 	}
 
-	bts, err := s.readFull(reader, size)
+	bts, err := s.readFull(reader, int(size))
 	if err != nil {
 		return err
 	}
@@ -239,23 +245,25 @@ func (s *Server) read(reader *bufio.Reader, data interface{}) error {
 }
 
 // readFull - reads full message (required due to reader size limitations)
-func (s *Server) readFull(reader *bufio.Reader, msgSize uint32) ([]byte, error) {
+func (s *Server) readFull(reader *bufio.Reader, size int) ([]byte, error) {
 	fullMsg := make([]byte, 0)
-	size := int(msgSize)
 
-	for  {
-		tmpSize := 0 // size of the tmp storage for a part of the message
+	// Without size in message, there is possible situation,
+	// when message will be exactly 4096 bytes,
+	// and Peek() will hang after read
+	// + size allows to separate data is socket when there is multiple different messages
+	for {
 		buffSize := reader.Buffered() // max reader size == 4096
 
-		// Find the required size
-		if size > buffSize {
-			tmpSize = buffSize
+		// Get required chunk size
+		chunkSize := 0
+		if size < buffSize {
+			chunkSize = size
 		} else {
-			tmpSize = size
+			chunkSize = buffSize
 		}
-
 		// Create tmp storage, read bytes into it, and append them to the full message.
-		buff := make([]byte, tmpSize)
+		buff := make([]byte, chunkSize)
 
 		_, err := reader.Read(buff)
 		if err != nil {
@@ -264,7 +272,7 @@ func (s *Server) readFull(reader *bufio.Reader, msgSize uint32) ([]byte, error) 
 		fullMsg = append(fullMsg, buff...)
 
 		// Break if message is fully read.
-		size -= tmpSize
+		size -= chunkSize
 		if size == 0 {
 			break
 		}

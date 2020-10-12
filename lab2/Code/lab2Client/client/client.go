@@ -42,12 +42,12 @@ func (c *Client) Connect(ID string) error {
 		if err := conn.Close(); err != nil {
 			log.Println(err)
 		}
-	}() // dont want to loose possible error
+	}() // dont want to lose possible error
 
 	log.Println("Connected to", path)
 
 	// send base data to the server
-	if err := c.write(conn, &request{ ClientName: ID}); err != nil {
+	if err := c.write(conn, &request{ClientName: ID}); err != nil {
 		return err
 	}
 
@@ -95,10 +95,8 @@ func (c *Client) write(conn net.Conn, data interface{}) error {
 // writeFull - writes full message to socket (required due to reader size limitations).
 func (c *Client) writeFull(conn net.Conn, bts []byte) error {
 	size := len(bts)
-	uintSize := uint32(size)
-
 	base := make([]byte, 4)
-	binary.BigEndian.PutUint32(base, uintSize)
+	binary.BigEndian.PutUint32(base, uint32(size))
 	base = append(base, bts...)
 
 	// Same as server.
@@ -152,7 +150,7 @@ func (c *Client) read(reader *bufio.Reader, data interface{}) error {
 		return err
 	}
 
-	bts, err := c.readFull(reader, size)
+	bts, err := c.readFull(reader, int(size))
 	if err != nil {
 		return err
 	}
@@ -161,23 +159,25 @@ func (c *Client) read(reader *bufio.Reader, data interface{}) error {
 }
 
 // readFull - reads full message (required due to reader size limitations)
-func (c *Client) readFull(reader *bufio.Reader, msgSize uint32) ([]byte, error) {
+func (c *Client) readFull(reader *bufio.Reader, size int) ([]byte, error) {
 	fullMsg := make([]byte, 0)
-	size := int(msgSize)
 
-	for  {
-		tmpSize := 0 // size of the tmp storage for a part of the message
+	// Without size in message, there is possible situation,
+	// when message will be exactly 4096 bytes,
+	// and Peek() will hang after read
+	// + size allows to separate data is socket when there is multiple different messages
+	for {
 		buffSize := reader.Buffered() // max reader size == 4096
 
-		// Find the required size
-		if size > buffSize {
-			tmpSize = buffSize
+		// Get required chunk size
+		chunkSize := 0
+		if size < buffSize {
+			chunkSize = size
 		} else {
-			tmpSize = size
+			chunkSize = buffSize
 		}
-
 		// Create tmp storage, read bytes into it, and append them to the full message.
-		buff := make([]byte, tmpSize)
+		buff := make([]byte, chunkSize)
 
 		_, err := reader.Read(buff)
 		if err != nil {
@@ -186,7 +186,7 @@ func (c *Client) readFull(reader *bufio.Reader, msgSize uint32) ([]byte, error) 
 		fullMsg = append(fullMsg, buff...)
 
 		// Break if message is fully read.
-		size -= tmpSize
+		size -= chunkSize
 		if size == 0 {
 			break
 		}

@@ -9,7 +9,6 @@ import (
 	"log"
 	"strconv"
 	"sync"
-	"time"
 )
 
 // ClientManager - manages the incoming clients.
@@ -40,22 +39,22 @@ func newClientManager() *ClientManager {
 }
 
 // addClient - adds new client to the map by the generated hash.
-func (c *ClientManager) addClient(clientName, clientAddr string, ch chan<- bool) string {
+func (c *ClientManager) addClient(name, addr string, time int64, ch chan<- bool) string {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	log.Println("Adding new client:", clientName)
+	log.Println("Adding new client:", name)
 
 	// too lazy to use UUID here, hash is fine.
-	keyString := strconv.FormatInt(time.Now().Unix(), 10) + clientName + clientAddr
+	keyString := strconv.FormatInt(time, 10) + name + addr
 	uniqueKey := md5.Sum([]byte(keyString))
 	hash := hex.EncodeToString(uniqueKey[:])
 
 	c.clients[hash] = &clientData{
 		ready: ch,
-		name:  clientName,
-		ip:    clientAddr,
-		time:  time.Now().Unix(),
+		name:  name,
+		ip:    addr,
+		time:  time,
 	}
 
 	return hash
