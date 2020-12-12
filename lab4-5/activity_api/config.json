@@ -1,0 +1,12 @@
+{
+  "DbType" : 0,
+  "ConnString" : "test_db.db",
+  "Addr" : "0.0.0.0:9332",
+  "LogLevel" : 5,
+  "LogPath" : "AAService.log",
+  "Cache" : {
+    "Address" : "192.168.1.113:6379",
+    "Password" : "",
+    "DB": 0
+  }
+}
