@@ -3,9 +3,8 @@ package models
 // Admin - admin user of AAService.
 type Admin struct {
 	Username string `db:"admin_name"`
-	// Password - field used only in login and register.
-	Password string
-	// Hash - password hash with salt.
+	// Hash - password hash (written to DB with salt).
+	// Password should be hashed on the client side, and then it would be hashed again on the server side.
 	Hash string `db:"password_hash"`
 }
 

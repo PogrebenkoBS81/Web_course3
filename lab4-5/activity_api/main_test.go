@@ -43,7 +43,9 @@ func getTestAdmin(t *testing.T) []byte {
 
 	u := models.Admin{
 		Username: uuid.New().String(),
-		Password: uuid.New().String(),
+		// I didn't truly create hash here, because it's only a test,
+		// but if sometime client would be implemented - has should be calculated on the client side.
+		Hash: uuid.New().String(),
 	}
 
 	bts, err := json.Marshal(u)

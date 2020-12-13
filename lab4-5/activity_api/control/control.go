@@ -16,6 +16,7 @@ import (
 	"time"
 )
 
+// TODO: implement HTTPS. I already have functions for JWT to generate valid keys, so in future I need to get .crt
 // AAService - config for service
 type AAService struct {
 	addr string // addr of service

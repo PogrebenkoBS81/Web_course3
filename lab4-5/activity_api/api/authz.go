@@ -32,7 +32,7 @@ func (a *AApi) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	entry.Debugf("Request from %s, admin name: %s", r.RemoteAddr, req.Username)
-	// Check if admin with given name and password exists.
+	// Check if admin with given name and password hash exists.
 	if code, err := a.checkAdmin(&req); err != nil {
 		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
 		api_common.RespondWithError(
@@ -161,8 +161,8 @@ func (a *AApi) Register(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
-	// Get password hash (salt is used).
-	req.Hash, err = a.password.HashPassword(req.Password)
+	// Get hash of a password hash (salt is used).
+	req.Hash, err = a.password.HashPassword(req.Hash)
 
 	if err != nil {
 		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
@@ -407,7 +407,7 @@ func (a *AApi) checkAdmin(req *models.Admin) (int, error) {
 		return http.StatusUnauthorized, errors.New("please provide valid login details")
 	}
 
-	if err = a.password.CheckPassword(req.Password, admin.Hash); err != nil {
+	if err = a.password.CheckPassword(req.Hash, admin.Hash); err != nil {
 		return http.StatusUnauthorized, errors.New("please provide valid login details")
 	}
 

@@ -5,7 +5,7 @@
   "LogLevel" : 5,
   "LogPath" : "AAService.log",
   "Cache" : {
-    "Address" : "192.168.1.113:6379",
+    "Address" : "localhost:6379",
     "Password" : "pass_for_development_purposes_only",
     "DB": 0
   }
