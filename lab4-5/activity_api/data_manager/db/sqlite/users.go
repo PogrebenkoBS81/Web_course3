@@ -35,7 +35,7 @@ func (s *SQLite) GetUsers(depID string) ([]*models.User, error) {
 	entry.Debugf("Getting users, department id: %s", depID)
 	users := make([]*models.User, 0)
 
-	if depID == "" {
+	if depID != "" {
 		if err := s.Get(&users, userDepartmentGet, depID); err != nil {
 			return nil, fmt.Errorf("s.Get() userDepartmentGet : %w", err)
 		}
@@ -45,7 +45,7 @@ func (s *SQLite) GetUsers(depID string) ([]*models.User, error) {
 		}
 	}
 
-	entry.Debugf("Retrieved users: %+v", users)
+	entry.Debugf("Retrieved users num: %d", len(users))
 	return users, nil
 }
 
@@ -64,7 +64,7 @@ func (s *SQLite) GetUser(userID string) (*models.User, error) {
 		return nil, fmt.Errorf("conn.QueryRow() userGet : %w", err)
 	}
 
-	entry.Debugf("Retrieved users with id %s: %+v", userID, user)
+	entry.Debugf("Retrieved users with id %s: %+v", userID, *user)
 	return user, nil
 }
 

@@ -45,7 +45,7 @@ func (s *SQLite) GetActivities() ([]*models.Activity, error) {
 		return nil, fmt.Errorf("SQLite s.Get(): %w", err)
 	}
 
-	entry.Debugf("Retrieved activities: %+v", &activities)
+	entry.Debugf("Retrieved activities: %d", len(activities))
 	return activities, nil
 }
 
@@ -64,7 +64,7 @@ func (s *SQLite) GetActivity(activityID string) (*models.Activity, error) {
 		return nil, fmt.Errorf("SQLite s.Pick(): %w", err)
 	}
 
-	s.logger.Debugf("Retrieved activity with id %s: %+v", activityID, activity)
+	s.logger.Debugf("Retrieved activity with id %s: %+v", activityID, *activity)
 	return activity, nil
 }
 

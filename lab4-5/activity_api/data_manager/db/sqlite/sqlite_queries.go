@@ -90,8 +90,7 @@ INSERT INTO user_activity (
 VALUES (?, ?, ?, ?);`
 
 	activitiesGet = `
-SELECT user_activity 
-    record_id 
+SELECT record_id 
     , user_id
     , active_time
     , total_time

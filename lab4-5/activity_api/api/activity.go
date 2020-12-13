@@ -28,7 +28,7 @@ func (a *AApi) GetActivities(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entry.Debugf("Responding to %s with: %+v", r.RemoteAddr, &activities)
+	entry.Debugf("Responding to %s with activities list (len %d)", r.RemoteAddr, len(activities))
 	api_common.RespondWithJson(w, http.StatusOK, &activities, a.logger)
 }
 
@@ -64,7 +64,7 @@ func (a *AApi) GetActivity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entry.Debugf("Responding to %s with: %+v", r.RemoteAddr, activity)
+	entry.Debugf("Responding to %s with: %+v", r.RemoteAddr, *activity)
 	api_common.RespondWithJson(w, http.StatusOK, &activity, a.logger)
 }
 

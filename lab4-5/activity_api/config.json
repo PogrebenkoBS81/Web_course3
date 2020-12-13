@@ -1,6 +1,6 @@
 {
   "DbType" : 0,
-  "ConnString" : "test_db.db",
+  "ConnString" : "AAServiceDB.db",
   "Addr" : "0.0.0.0:9332",
   "LogLevel" : 5,
   "LogPath" : "AAService.log",

@@ -33,7 +33,7 @@ type Activity struct {
 	// ActiveTime - active user time from all total time.
 	ActiveTime int64 `db:"active_time"`
 	// Date - time when activity record were taken.
-	Date int64 `db:"date"`
+	Date int64 `db:"activity_date"`
 }
 
 // UserActivity - data about user activity

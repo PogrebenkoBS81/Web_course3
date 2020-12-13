@@ -16,6 +16,8 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"reflect"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -24,9 +26,9 @@ import (
 // Predefined config for AAService
 var config = control.AAServiceConfig{
 	DbType:     0,
-	ConnString: "static/test_db.db",
+	ConnString: "functional_test_db.db",
 	Addr:       "localhost:9332",
-	LogLevel:   4, // Info level
+	LogLevel:   4,                     // Info level
 	LogFile:    "functional_test.log", // temporary unused
 	Cache: &cache.ICacheConfig{
 		Address:  "localhost:6379",
@@ -55,7 +57,7 @@ func getTestAdmin(t *testing.T) []byte {
 
 // login - attempts to login with given admin.
 func login(t *testing.T, client *http_client.NetHTTP, user []byte) (map[string]string, error) {
-	log.Println("TEST: TEST: log in API")
+	log.Println("TEST: log in API")
 
 	bts, err := client.MakeRequest(http.MethodPost, "http://localhost:9332/login", nil, user)
 
@@ -126,32 +128,38 @@ func unregister(t *testing.T, client *http_client.NetHTTP, headers map[string]st
 }
 
 // addDepartments - adds randomly generated departments.
-func addDepartments(t *testing.T, client *http_client.NetHTTP, headers map[string]string) []int64 {
+func addDepartments(t *testing.T, client *http_client.NetHTTP, headers map[string]string) []models.Department {
 	log.Println("TEST: Adding random departments")
-	ids := make([]int64, 0)
+	deps := make([]models.Department, 0)
 
 	for i := 0; i < rand.Intn(100); i++ {
-		dep := &models.Department{
+		dep := models.Department{
 			DepartmentName: uuid.New().String(),
 		}
 
 		id := postObject(t, client, headers, "http://localhost:9332/departments", dep)
-		ids = append(ids, id)
+		dep.DepartmentID = id
+		deps = append(deps, dep)
 	}
 
-	return ids
+	return deps
 }
 
 // addUsers - adds randomly generated users to given departments.
-func addUsers(t *testing.T, client *http_client.NetHTTP, headers map[string]string, deps []int64) []models.User {
+func addUsers(
+	t *testing.T,
+	client *http_client.NetHTTP,
+	headers map[string]string,
+	deps []models.Department,
+) []models.User {
 	log.Println("TEST: Adding random users")
 	users := make([]models.User, 0)
 
-	for _, id := range deps {
+	for _, dep := range deps {
 		for i := 0; i < rand.Intn(10); i++ {
 			user := models.User{
 				UserName:     uuid.New().String(),
-				DepartmentID: id,
+				DepartmentID: dep.DepartmentID,
 			}
 
 			id := postObject(t, client, headers, "http://localhost:9332/users", user)
@@ -373,11 +381,17 @@ func deleteByIds(t *testing.T, client *http_client.NetHTTP, headers map[string]s
 func deleteObjects(t *testing.T,
 	client *http_client.NetHTTP,
 	headers map[string]string,
-	depsID []int64,
+	deps []models.Department,
 	users []models.User,
 	activities []models.Activity,
 ) {
 	log.Println("TEST: Deleting created objects...")
+
+	depsID := make([]int64, len(deps))
+
+	for id, d := range deps {
+		depsID[id] = d.DepartmentID
+	}
 
 	deleteByIds(t, client, headers, "http://localhost:9332/departments", depsID)
 
@@ -414,7 +428,7 @@ func functionalCheck(t *testing.T, wg *sync.WaitGroup) {
 	activities := addActivities(t, client, headers, users)
 
 	checkUserActivityTime(t, client, headers, activities)
-	checkDepartActivityTime(t, client, headers, activities, users, depIds[0])
+	checkDepartActivityTime(t, client, headers, activities, users, depIds[0].DepartmentID)
 
 	deleteObjects(t, client, headers, depIds, users, activities)
 	unregister(t, client, headers, userBts)
@@ -425,13 +439,119 @@ func functionalCheck(t *testing.T, wg *sync.WaitGroup) {
 	}
 }
 
+// checkDeparts - checks if returned departs are equal to loaded departs.
+func checkDeparts(t *testing.T, departs []models.Department, client *http_client.NetHTTP, headers map[string]string) {
+	log.Println("Checking if returned departs are equal to loaded departs.")
+	bts, err := client.MakeRequest(http.MethodGet, "http://localhost:9332/departments", headers, nil)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data := make([]models.Department, 0)
+
+	if err = json.Unmarshal(bts, &data); err != nil {
+		t.Fatal(err)
+	}
+
+	sort.Slice(data, func(i, j int) bool {
+		return data[i].DepartmentID < data[j].DepartmentID
+	})
+
+	sort.Slice(departs, func(i, j int) bool {
+		return departs[i].DepartmentID < departs[j].DepartmentID
+	})
+
+	if !reflect.DeepEqual(departs, data) {
+		t.Fatalf("Departments doesn't match, lenR: %d, lenL: %d", len(departs), len(data))
+	}
+}
+
+// checkDeparts - checks if returned users are equal to loaded users.
+func checkUsers(t *testing.T, users []models.User, client *http_client.NetHTTP, headers map[string]string) {
+	log.Println("Checking if returned users are equal to loaded users.")
+	bts, err := client.MakeRequest(http.MethodGet, "http://localhost:9332/users", headers, nil)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data := make([]models.User, 0)
+
+	if err = json.Unmarshal(bts, &data); err != nil {
+		t.Fatal(err)
+	}
+
+	sort.Slice(data, func(i, j int) bool {
+		return data[i].UserID < data[j].UserID
+	})
+
+	sort.Slice(users, func(i, j int) bool {
+		return users[i].UserID < users[j].UserID
+	})
+
+	if !reflect.DeepEqual(users, data) {
+		t.Fatalf("Users doesn't match, lenR: %d, lenL: %d", len(users), len(data))
+	}
+}
+
+// checkDeparts - checks if returned activities are equal to loaded activities.
+func checkActivities(t *testing.T, act []models.Activity, client *http_client.NetHTTP, headers map[string]string) {
+	log.Println("Checking if returned activities are equal to loaded activities.")
+	bts, err := client.MakeRequest(http.MethodGet, "http://localhost:9332/activities", headers, nil)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data := make([]models.Activity, 0)
+
+	if err = json.Unmarshal(bts, &data); err != nil {
+		t.Fatal(err)
+	}
+
+	sort.Slice(data, func(i, j int) bool {
+		return data[i].RecordID < data[j].RecordID
+	})
+
+	sort.Slice(act, func(i, j int) bool {
+		return act[i].RecordID < act[j].RecordID
+	})
+
+	if !reflect.DeepEqual(act, data) {
+		t.Fatalf("Activities doesn't match, lenR: %d, lenL: %d", len(act), len(data))
+	}
+}
+
+// TODO: Requires clean database!!!!!!!!
+// TODO: Mock database and implement unit tests
+func getHandlersCheck(t *testing.T) {
+	client := http_client.NewHTTPClient()
+
+	userBts := getTestAdmin(t)
+	headers := registerAndLogin(t, client, userBts)
+
+	deps := addDepartments(t, client, headers)
+	users := addUsers(t, client, headers, deps)
+	activities := addActivities(t, client, headers, users)
+
+	checkDeparts(t, deps, client, headers)
+	checkUsers(t, users, client, headers)
+	checkActivities(t, activities, client, headers)
+
+	deleteObjects(t, client, headers, deps, users, activities)
+	unregister(t, client, headers, userBts)
+}
+
 // Base functional test.
+// No need to check delete, because getHandlersCheck will fail if functionalCheck doesn't delete it's data
 func Test_AAPI(t *testing.T) {
 	// Wait group to sync diff clients.
 	var wg sync.WaitGroup
 	srv := control.NewAAService(&config)
 	go srv.Run()
 
+	// Requires clean database!!!!!!!!
 	for i := 0; i < 3; i++ {
 		testName := fmt.Sprintf("Test: %d", i)
 		wg.Add(1)
@@ -443,5 +563,11 @@ func Test_AAPI(t *testing.T) {
 	}
 
 	wg.Wait() // Wait for clients.
+
+	// Requires clean database!!!!!!!!
+	t.Run("GET handlers check", func(t *testing.T) {
+		getHandlersCheck(t)
+	})
+
 	srv.Stop()
 }

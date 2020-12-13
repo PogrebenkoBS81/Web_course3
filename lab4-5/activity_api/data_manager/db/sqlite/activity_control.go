@@ -22,7 +22,7 @@ func (s *SQLite) GetUserActivity(userID, startTime, endTime string) (*models.Use
 		return nil, fmt.Errorf("SQLite s.Pick(), activityGet: %w", err)
 	}
 
-	entry.Debugf("Retrieved user (id: %s) activity data: %+v", userID, userActivity)
+	entry.Debugf("Retrieved user (id: %s) activity data: %+v", userID, *userActivity)
 	return userActivity, nil
 }
 
@@ -43,7 +43,7 @@ func (s *SQLite) GetDepartmentActivity(departID, startTime, endTime string) (*mo
 		return nil, fmt.Errorf("SQLite s.Pick(), activityGet: %w", err)
 	}
 
-	entry.Debugf("Retrieved department (id: %s) activity data: %+v", departID, departmentActivity)
+	entry.Debugf("Retrieved department (id: %s) activity data: %+v", departID, *departmentActivity)
 	return departmentActivity, nil
 }
 

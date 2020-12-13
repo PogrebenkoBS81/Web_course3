@@ -39,7 +39,7 @@ func (s *SQLite) GetDepartments() ([]*models.Department, error) {
 		return nil, fmt.Errorf("SQLite s.Get(), departmentCreate: %w", err)
 	}
 
-	entry.Debugf("Retrieved departments: %+v", departments)
+	entry.Debugf("Retrieved departments num: %d", len(departments))
 	return departments, nil
 }
 
@@ -58,7 +58,7 @@ func (s *SQLite) GetDepartment(departID string) (*models.Department, error) {
 		return nil, fmt.Errorf("SQLite s.Pick(), departmentCreate: %w", err)
 	}
 
-	entry.Debugf("Retrieved department with id %d: %+v", departID, department)
+	entry.Debugf("Retrieved department with id %d: %+v", departID, *department)
 	return department, nil
 }
 
