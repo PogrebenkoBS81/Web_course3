@@ -28,7 +28,7 @@ type AAServiceConfig struct {
 	Addr       string // Addr of service to listen
 
 	LogLevel uint32 // Log level for logrus
-	LogFile  string // File to log in
+	LogFile  string // File to log in // temporary unused
 
 	Cache *cache.ICacheConfig // Config for cache manager
 }

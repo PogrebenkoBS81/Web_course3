@@ -1,0 +1,36 @@
+# https://dantehranian.wordpress.com/2015/03/25/how-should-i-get-application-configuration-into-my-docker-containers/
+# Used 1 way due to API was already using config.json,
+# and I didn't have enough time for googling and implementing the best practices
+
+version: '3.9'
+services:
+  web:
+    container_name: activity_api
+    # Path to dockerfile.
+    # '.' represents the current directory in which
+    # docker-compose.yml is present.
+    build: .
+    ports:
+      - "9332:9332"
+    # Launch Redis first
+    depends_on:
+      - redis
+    # I don't see any need in this lab to map volumes.
+#    # map root dir to /activity_api, this allows to make changes to the project during the local development process
+#    volumes:
+#      - .:/activity_api
+    networks: # Networks to join (Services on the same network can communicate with each other using their name)
+      - backend
+  redis:
+    image: "redis:alpine"
+    # Set password (api gets pass from config json, see comment at the top of the file)
+    command: redis-server --requirepass pass_for_development_purposes_only
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+
+# Networks to be created to facilitate communication between containers
+# Links have been replaced by networks. Docker describes them as a legacy feature that you should avoid using.
+networks:
+  backend:

@@ -27,7 +27,7 @@ var config = control.AAServiceConfig{
 	ConnString: "static/test_db.db",
 	Addr:       "localhost:9332",
 	LogLevel:   4, // Info level
-	LogFile:    "functional_test.log",
+	LogFile:    "functional_test.log", // temporary unused
 	Cache: &cache.ICacheConfig{
 		Address:  "localhost:6379",
 		Password: "",

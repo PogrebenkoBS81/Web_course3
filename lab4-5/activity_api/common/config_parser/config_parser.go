@@ -54,16 +54,17 @@ func ParseConfig(configName string) (*control.AAServiceConfig, error) {
 	if err = parseJSON(configPath, config); err != nil {
 		return nil, fmt.Errorf("parseJSON(): %w", err)
 	}
-	// Check if path is abs, if not - make it abs.
-	if abs := filepath.IsAbs(config.LogFile); !abs {
-		pth, err := filepath.Abs(config.LogFile)
 
-		if err != nil {
-			return nil, err
-		}
-
-		config.LogFile = filepath.Join(dir, pth)
-	}
+	//// Check if path is abs, if not - make it abs.
+	//if abs := filepath.IsAbs(config.LogFile); !abs {
+	//	pth, err := filepath.Abs(config.LogFile)
+	//
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//
+	//	config.LogFile = filepath.Join(dir, pth)
+	//}
 
 	return config, nil
 }
