@@ -10,6 +10,7 @@ services:
     # '.' represents the current directory in which
     # docker-compose.yml is present.
     build: .
+    # tag an image to avoid unnecessary image rebuilding 
     image: activity_api:latest
     ports:
       - "9332:9332"
@@ -17,7 +18,7 @@ services:
     depends_on:
       - redis
     # I don't see any need in this lab to map volumes.
-#    # map root dir to /activity_api, this allows to make changes to the project during the local development process
+#    # map root dir to /activity_api, this allows to make changes to the project during the local development process (for possible future unit testing?)
 #    volumes:
 #      - .:/activity_api
   redis:
