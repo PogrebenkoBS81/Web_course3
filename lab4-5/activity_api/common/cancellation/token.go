@@ -14,16 +14,17 @@ type Token struct {
 	delta  int
 }
 
-// NewToken - returns new cancellation token.
-func NewToken() *Token {
-	t := new(Token)
-	t.parent = context.Background()
-	t.ctx, t.f = context.WithCancel(t.parent)
-	t.delta = 1
-	t.wg.Add(t.delta)
-
-	return t
-}
+////// I didn't need it for now, so to avoid golang warning - comment it
+//// NewToken - returns new cancellation token.
+//func NewToken() *Token {
+//	t := new(Token)
+//	t.parent = context.Background()
+//	t.ctx, t.f = context.WithCancel(t.parent)
+//	t.delta = 1
+//	t.wg.Add(t.delta)
+//
+//	return t
+//}
 
 // NewToken - returns new custom cancellation token.
 func NewCustomToken(parent context.Context, delta int) *Token {

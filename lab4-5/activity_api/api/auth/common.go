@@ -39,7 +39,7 @@ func ParseToken(tokenString string) (*jwt.Token, error) {
 		}
 
 		block, rest := pem.Decode([]byte(os.Getenv("TOKEN_PUBLIC")))
-
+		// If there is an extra data after -----END PUBLIC KEY----- - throw an error.
 		if len(rest) > 0 {
 			return nil, fmt.Errorf("unexpected extra block length: %d", rest)
 		}

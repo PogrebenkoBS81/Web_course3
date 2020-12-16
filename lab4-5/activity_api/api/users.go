@@ -43,7 +43,7 @@ func (a *AApi) GetUser(w http.ResponseWriter, r *http.Request) {
 	user, err := a.sqlManager.GetUser(vars["id"])
 
 	if err != nil {
-		entry.Errorf("Respond to %s, error:", r.RemoteAddr, err)
+		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
 		api_common.RespondWithError(
 			w,
 			http.StatusUnprocessableEntity,
@@ -55,7 +55,7 @@ func (a *AApi) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 	// Id user is nil == doesn't exists
 	if user == nil {
-		entry.Warnf("Respond to %s, error:", r.RemoteAddr, err)
+		entry.Warnf("Respond to %s, error: %v", r.RemoteAddr, err)
 		api_common.RespondWithError(w, http.StatusNotFound, "user doesn't exists", a.logger)
 
 		return
@@ -73,7 +73,7 @@ func (a *AApi) CreateUser(w http.ResponseWriter, r *http.Request) {
 	user := new(models.User)
 
 	if err := json.NewDecoder(r.Body).Decode(user); err != nil {
-		entry.Errorf("Respond to %s, error:", r.RemoteAddr, err)
+		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
 		api_common.RespondWithError(
 			w,
 			http.StatusUnprocessableEntity,
@@ -88,7 +88,7 @@ func (a *AApi) CreateUser(w http.ResponseWriter, r *http.Request) {
 	id, err := a.sqlManager.CreateUser(user)
 
 	if err != nil {
-		entry.Errorf("Respond to %s, error:", r.RemoteAddr, err)
+		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
 		api_common.RespondWithError(
 			w,
 			http.StatusUnprocessableEntity,
@@ -112,7 +112,7 @@ func (a *AApi) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	id, err := a.sqlManager.DeleteUser(vars["id"])
 
 	if err != nil {
-		entry.Errorf("Respond to %s, error:", r.RemoteAddr, err)
+		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
 		api_common.RespondWithError(
 			w,
 			http.StatusUnprocessableEntity,

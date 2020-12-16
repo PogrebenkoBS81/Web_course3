@@ -83,7 +83,7 @@ func (a *AApi) Login(w http.ResponseWriter, r *http.Request) {
 // Logout - logouts user, deletes his tokens.
 func (a *AApi) Logout(w http.ResponseWriter, r *http.Request) {
 	entry := a.logger.WithField("func", "Logout")
-	entry.Debugf("Request from %s, url departmentID: %s", r.RemoteAddr)
+	entry.Debugf("Request from %s", r.RemoteAddr)
 	//If metadata is passed and the tokens valid, delete them from the redis store
 	metadata, err := a.token.ExtractTokenMetadata(r)
 
@@ -120,7 +120,7 @@ func (a *AApi) Logout(w http.ResponseWriter, r *http.Request) {
 // Register - registers admin with data from JSON.
 func (a *AApi) Register(w http.ResponseWriter, r *http.Request) {
 	entry := a.logger.WithField("func", "Register")
-	entry.Debugf("Request from:", r.RemoteAddr)
+	entry.Debug("Request from:", r.RemoteAddr)
 
 	req := new(models.Admin)
 
@@ -251,7 +251,7 @@ func (a *AApi) Refresh(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 
 	entry := a.logger.WithField("func", "Refresh")
-	entry.Debugf("Request from:", r.RemoteAddr)
+	entry.Debug("Request from:", r.RemoteAddr)
 
 	if err := decoder.Decode(&mapToken); err != nil {
 		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
@@ -395,7 +395,7 @@ func (a *AApi) refresh(w http.ResponseWriter, r *http.Request, claims jwt.MapCla
 }
 
 func (a *AApi) checkAdmin(req *models.Admin) (int, error) {
-	a.logger.WithField("func", "checkAdmin").Debugf("Checking admin with name: ", req.Username)
+	a.logger.WithField("func", "checkAdmin").Debug("Checking admin with name: ", req.Username)
 
 	admin, err := a.sqlManager.GetAdmin(req.Username)
 

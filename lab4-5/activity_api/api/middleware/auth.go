@@ -35,7 +35,7 @@ func (m *AuthMiddleware) TokenAuthMiddleware(next http.Handler) http.Handler {
 			err := auth.TokenValid(r)
 
 			if err != nil {
-				entry.Errorf("Respond to %s, error:", r.RemoteAddr, err)
+				entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
 				api_common.RespondWithError(
 					w,
 					http.StatusUnauthorized,

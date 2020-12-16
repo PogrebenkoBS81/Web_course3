@@ -17,7 +17,7 @@ func (a *AApi) GetDepartments(w http.ResponseWriter, r *http.Request) {
 	departs, err := a.sqlManager.GetDepartments()
 
 	if err != nil {
-		entry.Errorf("Respond to %s, error:", r.RemoteAddr, err)
+		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
 		api_common.RespondWithError(
 			w,
 			http.StatusUnprocessableEntity,
@@ -41,7 +41,7 @@ func (a *AApi) GetDepartment(w http.ResponseWriter, r *http.Request) {
 	depart, err := a.sqlManager.GetDepartment(vars["id"])
 
 	if err != nil {
-		entry.Errorf("Respond to %s, error:", r.RemoteAddr, err)
+		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
 		api_common.RespondWithError(
 			w,
 			http.StatusUnprocessableEntity,
@@ -53,7 +53,7 @@ func (a *AApi) GetDepartment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if depart == nil {
-		entry.Errorf("Respond to %s, error:", r.RemoteAddr, err)
+		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
 		api_common.RespondWithError(w, http.StatusNotFound, "depart doesn't exists", a.logger)
 
 		return
@@ -71,7 +71,7 @@ func (a *AApi) CreateDepartment(w http.ResponseWriter, r *http.Request) {
 	depart := new(models.Department)
 
 	if err := json.NewDecoder(r.Body).Decode(depart); err != nil {
-		entry.Errorf("Respond to %s, error:", r.RemoteAddr, err)
+		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
 		api_common.RespondWithError(
 			w,
 			http.StatusUnprocessableEntity,
@@ -85,7 +85,7 @@ func (a *AApi) CreateDepartment(w http.ResponseWriter, r *http.Request) {
 	id, err := a.sqlManager.CreateDepartment(depart)
 
 	if err != nil {
-		entry.Errorf("Respond to %s, error:", r.RemoteAddr, err)
+		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
 		api_common.RespondWithError(
 			w,
 			http.StatusUnprocessableEntity,
@@ -109,7 +109,7 @@ func (a *AApi) DeleteDepartment(w http.ResponseWriter, r *http.Request) {
 	id, err := a.sqlManager.DeleteDepartment(vars["id"])
 
 	if err != nil {
-		entry.Errorf("Respond to %s, error:", r.RemoteAddr, err)
+		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
 		api_common.RespondWithError(
 			w,
 			http.StatusUnprocessableEntity,

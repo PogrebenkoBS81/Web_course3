@@ -2,6 +2,7 @@ package config_parser
 
 import (
 	"activity_api/control"
+	"activity_api/data_manager/db"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -39,32 +40,50 @@ func parseJSON(filePath string, data interface{}) error {
 	return nil
 }
 
-// ParseConfig - parses AAServer config by given path.
-func ParseConfig(configName string) (*control.AAServiceConfig, error) {
-	// Get full path. Required if service will run under system.
+// Check if path is abs, if not - make it abs.
+// Required if app will run under system.
+func EnsureAbsPath(toCheck string) (string, error) {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 
 	if err != nil {
-		return nil, fmt.Errorf("os.Getwd(): %w", err)
+		return "", fmt.Errorf("os.Getwd(): %w", err)
+	}
+	// Check that given path is abs
+	if abs := filepath.IsAbs(toCheck); !abs {
+		toCheck, err = filepath.Abs(toCheck)
+
+		if err != nil {
+			return "", fmt.Errorf("filepath.Abs(): %w", err)
+		}
 	}
 
-	configPath := filepath.Join(dir, configName)
-	config := new(control.AAServiceConfig)
+	return filepath.Join(dir, toCheck), nil
+}
 
-	if err = parseJSON(configPath, config); err != nil {
+// ParseConfig - parses AAServer config by given path.
+func ParseConfig(configName string) (*control.AAServiceConfig, error) {
+	// Make path abs
+	path, err := EnsureAbsPath(configName)
+
+	if err != nil {
+		return nil, fmt.Errorf("EnsureAbsPath(): %w", err)
+	}
+
+	config := new(control.AAServiceConfig)
+	// Parse config
+	if err = parseJSON(path, config); err != nil {
 		return nil, fmt.Errorf("parseJSON(): %w", err)
 	}
+	// Due to SQLite conn string is DB path - ensure that this path is abs
+	if config.DbType == db.SQLite {
+		conn, err := EnsureAbsPath(config.ConnString)
 
-	//// Check if path is abs, if not - make it abs.
-	//if abs := filepath.IsAbs(config.LogFile); !abs {
-	//	pth, err := filepath.Abs(config.LogFile)
-	//
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//
-	//	config.LogFile = filepath.Join(dir, pth)
-	//}
+		if err != nil {
+			return nil, fmt.Errorf("EnsureAbsPath(): %w", err)
+		}
+
+		config.ConnString = conn
+	}
 
 	return config, nil
 }

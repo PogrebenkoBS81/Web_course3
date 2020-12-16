@@ -49,7 +49,7 @@ func NewAAService(config *AAServiceConfig) *AAService {
 	}
 
 	aaService.cache = cache.NewCacheManager(
-		cache.Redis,
+		config.CacheType,
 		config.Cache,
 		aaService.cancel.Context(),
 		logger,
@@ -185,5 +185,5 @@ func (a *AAService) ping(service iManageable) {
 		return
 	}
 
-	entry.Info("Reconnect to %s successful!", service.Describe())
+	entry.Infof("Reconnect to %s successful!", service.Describe())
 }

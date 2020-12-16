@@ -20,7 +20,7 @@ type Redis struct {
 
 	redis  *redis.Client
 	ctx    context.Context
-	mtx    sync.RWMutex
+	mtx    sync.RWMutex // RWMutex is used to improve performance
 	logger logrus.FieldLogger
 }
 
@@ -44,11 +44,11 @@ func (r *Redis) Restart() (err error) {
 	entry.Info("Restarting Redis connection...")
 
 	if err = r.close(); err != nil {
-		r.logger.Errorf("close redis connection error")
+		entry.Errorf("close redis connection error")
 	}
 
 	if err = r.open(); err != nil {
-		r.logger.Errorf("open redis connection error")
+		entry.Errorf("open redis connection error")
 	}
 
 	return

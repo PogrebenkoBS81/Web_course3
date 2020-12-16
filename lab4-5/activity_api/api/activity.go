@@ -14,7 +14,7 @@ func (a *AApi) GetActivities(w http.ResponseWriter, r *http.Request) {
 	activities, err := a.sqlManager.GetActivities()
 
 	entry := a.logger.WithField("func", "GetActivities")
-	entry.Debugf("Request from: ", r.RemoteAddr)
+	entry.Debug("Request from: ", r.RemoteAddr)
 
 	if err != nil {
 		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
@@ -41,7 +41,7 @@ func (a *AApi) GetActivity(w http.ResponseWriter, r *http.Request) {
 	activity, err := a.sqlManager.GetActivity(vars["id"])
 
 	if err != nil {
-		entry.Errorf("Respond to %s, error:", r.RemoteAddr, err)
+		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
 		api_common.RespondWithError(
 			w,
 			http.StatusUnprocessableEntity,
@@ -53,7 +53,7 @@ func (a *AApi) GetActivity(w http.ResponseWriter, r *http.Request) {
 	}
 	// If activity doesn't exist - return an error.
 	if activity == nil {
-		entry.Errorf("Respond to %s, department doesn't exist", r.RemoteAddr, err)
+		entry.Errorf("Respond to %s, activity doesn't exist", r.RemoteAddr)
 		api_common.RespondWithError(
 			w,
 			http.StatusNotFound,
@@ -76,7 +76,7 @@ func (a *AApi) CreateActivity(w http.ResponseWriter, r *http.Request) {
 	activity := new(models.Activity)
 
 	if err := json.NewDecoder(r.Body).Decode(activity); err != nil {
-		entry.Errorf("Respond to %s, error:", r.RemoteAddr, err)
+		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
 		api_common.RespondWithError(
 			w,
 			http.StatusUnprocessableEntity,
@@ -91,7 +91,7 @@ func (a *AApi) CreateActivity(w http.ResponseWriter, r *http.Request) {
 	id, err := a.sqlManager.CreateActivity(activity)
 
 	if err != nil {
-		entry.Errorf("Respond to %s, error:", r.RemoteAddr, err)
+		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
 		api_common.RespondWithError(
 			w,
 			http.StatusUnprocessableEntity,
@@ -115,7 +115,7 @@ func (a *AApi) DeleteActivity(w http.ResponseWriter, r *http.Request) {
 	id, err := a.sqlManager.DeleteActivity(vars["id"])
 
 	if err != nil {
-		entry.Errorf("Respond to %s, error:", r.RemoteAddr, err)
+		entry.Errorf("Respond to %s, error: %v", r.RemoteAddr, err)
 		api_common.RespondWithError(
 			w,
 			http.StatusUnprocessableEntity,

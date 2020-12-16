@@ -73,6 +73,10 @@ func (s *SQL) Open() error {
 func (s *SQL) open() (err error) {
 	s.logger.WithField("func", "open").Info("Opening DB connection...")
 
+	if s.db != nil {
+		return errors.New("sql connection already exist")
+	}
+
 	s.db, err = sqlx.Open(s.driver, s.connString)
 	if err != nil {
 		return fmt.Errorf("SQL Open(): %w", err)
@@ -111,6 +115,10 @@ func (s *SQL) OK() (err error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
+	if s.db == nil {
+		return errors.New("sql connection doesn't exist")
+	}
+
 	s.logger.WithField("func", "OK").Debug("Doing ping...")
 
 	// TODO: if ping will be used not only in pinger - create flag to reduce overhead.
@@ -121,6 +129,10 @@ func (s *SQL) OK() (err error) {
 func (s *SQL) Exec(query string, args ...interface{}) (sql.Result, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
+
+	if s.db == nil {
+		return nil, errors.New("sql connection doesn't exist")
+	}
 
 	s.logger.WithField("func", "Exec").Debugf("Executing query: %s", query)
 
@@ -138,6 +150,10 @@ func (s *SQL) Get(dest interface{}, query string, args ...interface{}) error {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
+	if s.db == nil {
+		return errors.New("sql connection doesn't exist")
+	}
+
 	s.logger.WithField("func", "Get").Debugf("Get query: %s", query)
 
 	if err := s.db.Select(dest, query, args...); err != nil {
@@ -151,6 +167,10 @@ func (s *SQL) Get(dest interface{}, query string, args ...interface{}) error {
 func (s *SQL) Pick(dest interface{}, query string, args ...interface{}) error {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
+
+	if s.db == nil {
+		return errors.New("sql connection doesn't exist")
+	}
 
 	s.logger.WithField("func", "Pick").Debugf("Pick query: %s", query)
 

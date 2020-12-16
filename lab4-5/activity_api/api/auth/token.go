@@ -33,7 +33,7 @@ func NewToken(logger logrus.FieldLogger) IToken {
 // CreateToken - creates access and refresh jwt token.
 func (t *tokenService) CreateToken(username string) (*TokenDetails, error) {
 	entry := t.logger.WithField("func", "CreateToken")
-	entry.Debugf("Creating token for:", username)
+	entry.Debug("Creating token for:", username)
 
 	td := &TokenDetails{}
 	td.AtExpires = time.Now().Add(time.Minute * 30).Unix() //expires after 30 min
@@ -44,7 +44,7 @@ func (t *tokenService) CreateToken(username string) (*TokenDetails, error) {
 
 	var err error
 	//Creating Access Token
-	entry.Debugf("Creating access token for:", username)
+	entry.Debug("Creating access token for:", username)
 	atClaims := jwt.MapClaims{}
 	atClaims["access_uuid"] = td.TokenUuid
 	atClaims["user_id"] = username
@@ -69,7 +69,7 @@ func (t *tokenService) CreateToken(username string) (*TokenDetails, error) {
 	}
 
 	//Creating Refresh Token
-	entry.Debugf("Creating refresh token for:", username)
+	entry.Debug("Creating refresh token for:", username)
 	td.RtExpires = time.Now().Add(time.Hour * 24 * 7).Unix()
 	td.RefreshUuid = td.TokenUuid + "++" + username
 
@@ -85,14 +85,14 @@ func (t *tokenService) CreateToken(username string) (*TokenDetails, error) {
 		return nil, fmt.Errorf("refresh at.SignedString(): %w", err)
 	}
 
-	entry.Debugf("Returning token details for:", username)
+	entry.Debug("Returning token details for:", username)
 	return td, nil
 }
 
 // ExtractTokenMetadata - extracts token metadata from given request.
 func (t *tokenService) ExtractTokenMetadata(r *http.Request) (*AccessDetails, error) {
 	t.logger.WithField("func", "ExtractTokenMetadata").
-		Debugf("Extracting token metadata for:", r.RemoteAddr)
+		Debug("Extracting token metadata for:", r.RemoteAddr)
 	token, err := verifyToken(r)
 
 	if err != nil {

@@ -1,7 +1,6 @@
-// Global functional test.
+// Basic smoke test
 // This test is quite messy, so it would be better to rewrite them in future.
-// TODO: Clean up this test,
-// TODO: implement unit tests, with DB mocking, etc
+// TODO: Clean up this test
 
 package main
 
@@ -16,6 +15,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"reflect"
 	"sort"
 	"sync"
@@ -25,20 +25,41 @@ import (
 
 // Predefined config for AAService
 var config = control.AAServiceConfig{
-	DbType:     0,
-	ConnString: "functional_test_db.db",
-	Addr:       "localhost:9332",
-	LogLevel:   4,                     // Info level
-	LogFile:    "functional_test.log", // temporary unused
-	Cache: &cache.ICacheConfig{
-		Address:  "localhost:6379",
-		Password: "",
-		DB:       0,
-	},
+	CacheType: 0, // CacheMock
+	DbType:    0,
+	// // Will be generated randomly to ensure clean DB
+	// ConnString: "functional_test_db.db",
+	Addr:     "localhost:9332",
+	LogLevel: 4, // Info level
+	// Cache Mock doesn't need config
+	Cache: &cache.ICacheConfig{},
+}
+
+type testRunner func(data *loadData)
+
+type loadData struct {
+	deps    []*models.Department
+	users   []*models.User
+	act     []*models.Activity
+	headers map[string]string
+}
+
+// smokeTest - base smoke test realisation
+type smokeTest struct {
+	client *http_client.NetHTTP
+	t      *testing.T
+}
+
+// newSmokeTest - create new smoke tester
+func newSmokeTest(client *http_client.NetHTTP, t *testing.T) *smokeTest {
+	return &smokeTest{
+		client: client,
+		t:      t,
+	}
 }
 
 // getTestAdmin - returns randomly created admin.
-func getTestAdmin(t *testing.T) []byte {
+func (s *smokeTest) getTestAdmin() []byte {
 	log.Println("TEST: TEST: getting test admin")
 
 	u := models.Admin{
@@ -51,17 +72,17 @@ func getTestAdmin(t *testing.T) []byte {
 	bts, err := json.Marshal(u)
 
 	if err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 
 	return bts
 }
 
 // login - attempts to login with given admin.
-func login(t *testing.T, client *http_client.NetHTTP, user []byte) (map[string]string, error) {
+func (s *smokeTest) login(user []byte) (map[string]string, error) {
 	log.Println("TEST: log in API")
 
-	bts, err := client.MakeRequest(http.MethodPost, "http://localhost:9332/login", nil, user)
+	bts, err := s.client.MakeRequest(http.MethodPost, "http://localhost:9332/login", nil, user)
 
 	if err != nil {
 		return nil, err
@@ -70,46 +91,46 @@ func login(t *testing.T, client *http_client.NetHTTP, user []byte) (map[string]s
 	m := make(map[string]string)
 
 	if err = json.Unmarshal(bts, &m); err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 
 	return m, nil
 }
 
 // postObject - posts given data on given handler.
-func postObject(t *testing.T, client *http_client.NetHTTP, headers map[string]string, path string, data interface{}) int64 {
+func (s *smokeTest) postObject(headers map[string]string, path string, data interface{}) int64 {
 	bts, err := json.Marshal(data)
 	if err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 
-	bts, err = client.MakeRequest(http.MethodPost, path, headers, bts)
+	bts, err = s.client.MakeRequest(http.MethodPost, path, headers, bts)
 	if err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 
 	id := new(models.ObjectID)
 
 	if err = json.Unmarshal(bts, &id); err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 
 	return id.ID
 }
 
 // registerAndLogin - register given admin and logins it, returns auth token
-func registerAndLogin(t *testing.T, client *http_client.NetHTTP, userBts []byte) map[string]string {
+func (s *smokeTest) registerAndLogin(userBts []byte) map[string]string {
 	log.Println("TEST: Registering and login")
 
-	_, err := client.MakeRequest(http.MethodPost, "http://localhost:9332/register", nil, userBts)
+	_, err := s.client.MakeRequest(http.MethodPost, "http://localhost:9332/register", nil, userBts)
 
 	if err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 
-	token, err := login(t, client, userBts)
+	token, err := s.login(userBts)
 	if err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 
 	headers := map[string]string{
@@ -120,26 +141,26 @@ func registerAndLogin(t *testing.T, client *http_client.NetHTTP, userBts []byte)
 }
 
 // unregister - unregister given admin.
-func unregister(t *testing.T, client *http_client.NetHTTP, headers map[string]string, userBts []byte) {
+func (s *smokeTest) unregister(headers map[string]string, userBts []byte) {
 	log.Println("TEST: Unregistering")
-	_, err := client.MakeRequest(http.MethodDelete, "http://localhost:9332/unregister", headers, userBts)
+	_, err := s.client.MakeRequest(http.MethodDelete, "http://localhost:9332/unregister", headers, userBts)
 
 	if err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 }
 
 // addDepartments - adds randomly generated departments.
-func addDepartments(t *testing.T, client *http_client.NetHTTP, headers map[string]string) []models.Department {
+func (s *smokeTest) addDepartments(headers map[string]string) []*models.Department {
 	log.Println("TEST: Adding random departments")
-	deps := make([]models.Department, 0)
+	deps := make([]*models.Department, 0)
 
 	for i := 0; i < rand.Intn(100); i++ {
-		dep := models.Department{
+		dep := &models.Department{
 			DepartmentName: uuid.New().String(),
 		}
 
-		id := postObject(t, client, headers, "http://localhost:9332/departments", dep)
+		id := s.postObject(headers, "http://localhost:9332/departments", dep)
 		dep.DepartmentID = id
 		deps = append(deps, dep)
 	}
@@ -148,23 +169,18 @@ func addDepartments(t *testing.T, client *http_client.NetHTTP, headers map[strin
 }
 
 // addUsers - adds randomly generated users to given departments.
-func addUsers(
-	t *testing.T,
-	client *http_client.NetHTTP,
-	headers map[string]string,
-	deps []models.Department,
-) []models.User {
+func (s *smokeTest) addUsers(headers map[string]string, deps []*models.Department) []*models.User {
 	log.Println("TEST: Adding random users")
-	users := make([]models.User, 0)
+	users := make([]*models.User, 0)
 
 	for _, dep := range deps {
 		for i := 0; i < rand.Intn(10); i++ {
-			user := models.User{
+			user := &models.User{
 				UserName:     uuid.New().String(),
 				DepartmentID: dep.DepartmentID,
 			}
 
-			id := postObject(t, client, headers, "http://localhost:9332/users", user)
+			id := s.postObject(headers, "http://localhost:9332/users", user)
 
 			user.UserID = id
 			users = append(users, user)
@@ -175,46 +191,41 @@ func addUsers(
 }
 
 // addActivities - adds randomly generated activities to given users.
-func addActivities(
-	t *testing.T,
-	client *http_client.NetHTTP,
-	headers map[string]string,
-	users []models.User,
-) []models.Activity {
+func (s *smokeTest) addActivities(headers map[string]string, users []*models.User) []*models.Activity {
 	log.Println("TEST: Adding random activities")
 
-	ids := make([]models.Activity, 0)
+	activities := make([]*models.Activity, 0)
 	var min int64 = 500
 	var max int64 = 1000
 
 	for _, u := range users {
 		for i := 0; i < rand.Intn(100); i++ {
-			user := models.Activity{
+			user := &models.Activity{
 				UserID:     u.UserID,
 				TotalTime:  rand.Int63n(max-min) + min,
 				ActiveTime: rand.Int63n(min),
 				Date:       time.Now().Unix() + rand.Int63n(max),
 			}
 
-			id := postObject(t, client, headers, "http://localhost:9332/activities", user)
+			id := s.postObject(headers, "http://localhost:9332/activities", user)
 
 			user.RecordID = id
-			ids = append(ids, user)
+			activities = append(activities, user)
 		}
 	}
 
-	return ids
+	return activities
 }
 
-// manualActivityCalc - manually calculates activity time for given users to check api.
-func manualActivityCalc(usersID map[int64]bool, minTime, maxTime int64, activity []models.Activity) (int64, int64) {
+// manualCalc - manually calculates activity time for given users to check api.
+func (s *smokeTest) manualTimeCalc(act []*models.Activity, users map[int64]bool, minTime, maxTime int64) (int64, int64) {
 	log.Println("TEST: Manually calculating activity")
 
 	var manualActive int64
 	var manualTotal int64
 
-	for _, a := range activity {
-		if _, ok := usersID[a.UserID]; !ok {
+	for _, a := range act {
+		if _, ok := users[a.UserID]; !ok {
 			continue
 		}
 
@@ -228,13 +239,13 @@ func manualActivityCalc(usersID map[int64]bool, minTime, maxTime int64, activity
 }
 
 // getUserTiming - get timing between first and last record, to check URL time query.
-func getUserTiming(userID int64, activity []models.Activity) (int64, int64) {
+func (s *smokeTest) getUserTiming(act []*models.Activity, userID int64) (int64, int64) {
 	log.Println("TEST: Creating data time slice")
 
-	sliceMinTime := activity[0].Date + 1 // Don't include first user record to test URL time query
-	sliceMaxTime := activity[0].Date
+	sliceMinTime := act[0].Date + 1 // Don't include first user record to test URL time query
+	sliceMaxTime := act[0].Date
 
-	for _, a := range activity {
+	for _, a := range act {
 		if a.UserID == userID && sliceMaxTime < a.Date {
 			sliceMaxTime = a.Date - 1 // Don't include last user record to test URL time query
 		}
@@ -244,14 +255,14 @@ func getUserTiming(userID int64, activity []models.Activity) (int64, int64) {
 }
 
 // checkUserActivityTime - checks manually calculated user activity with activity calculated by api.
-func checkUserActivityTime(t *testing.T, client *http_client.NetHTTP, headers map[string]string, act []models.Activity) {
+func (s *smokeTest) checkUserActivityTime(act []*models.Activity, headers map[string]string) {
 	log.Println("TEST: Requesting user activity from API")
 
 	userID := act[0].UserID
-	minTime, maxTime := getUserTiming(userID, act)
+	minTime, maxTime := s.getUserTiming(act, userID)
 
 	var user = map[int64]bool{userID: true}
-	activeTime, totalTime := manualActivityCalc(user, minTime, maxTime, act)
+	activeTime, totalTime := s.manualTimeCalc(act, user, minTime, maxTime)
 
 	path := fmt.Sprintf("http://localhost:9332/control/user/%d?TimeStart=%d&TimeEnd=%d",
 		userID,
@@ -259,24 +270,24 @@ func checkUserActivityTime(t *testing.T, client *http_client.NetHTTP, headers ma
 		maxTime,
 	)
 
-	bts, err := client.MakeRequest(http.MethodGet, path, headers, nil)
+	bts, err := s.client.MakeRequest(http.MethodGet, path, headers, nil)
 
 	if err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 
 	data := new(models.DepartmentActivity)
 
 	if err = json.Unmarshal(bts, &data); err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 
-	checkTime(t, data.TotalTime, totalTime)
-	checkTime(t, data.ActiveTime, activeTime)
+	s.checkTime(data.TotalTime, totalTime)
+	s.checkTime(data.ActiveTime, activeTime)
 }
 
 // getDepUsers - separates user from given department.
-func getDepUsers(depID int64, users []models.User) map[int64]bool {
+func (s *smokeTest) getDepUsers(users []*models.User, depID int64) map[int64]bool {
 	log.Println("TEST: Creating data time slice")
 
 	usersMap := make(map[int64]bool)
@@ -291,12 +302,12 @@ func getDepUsers(depID int64, users []models.User) map[int64]bool {
 }
 
 // getDepartTiming - get timing between first and last record, to check URL time query.
-func getDepartTiming(depUsers map[int64]bool, activity []models.Activity) (int64, int64) {
+func (s *smokeTest) getDepartTiming(act []*models.Activity, depUsers map[int64]bool) (int64, int64) {
 	log.Println("TEST: Creating data time slice")
 
 	var minTime, maxTime int64
 
-	for _, a := range activity {
+	for _, a := range act {
 		if _, ok := depUsers[a.UserID]; !ok {
 			continue
 		}
@@ -313,19 +324,18 @@ func getDepartTiming(depUsers map[int64]bool, activity []models.Activity) (int64
 	return minTime, maxTime
 }
 
-// checkDepartActivityTime - checks manually calculated department activity with activity calculated by api.
-func checkDepartActivityTime(t *testing.T,
-	client *http_client.NetHTTP,
-	headers map[string]string,
-	act []models.Activity,
-	users []models.User,
+// manualDepartCalc - checks manually calculated department activity with activity calculated by api.
+func (s *smokeTest) checkDepartActivityTime(
+	act []*models.Activity,
+	users []*models.User,
 	depID int64,
+	headers map[string]string,
 ) {
 	log.Println("TEST: Requesting depart activity from API")
 
-	depUsers := getDepUsers(depID, users)
-	minTime, maxTime := getDepartTiming(depUsers, act)
-	activeTime, totalTime := manualActivityCalc(depUsers, minTime, maxTime, act)
+	depUsers := s.getDepUsers(users, depID)
+	minTime, maxTime := s.getDepartTiming(act, depUsers)
+	activeTime, totalTime := s.manualTimeCalc(act, depUsers, minTime, maxTime)
 
 	path := fmt.Sprintf("http://localhost:9332/control/user/%d?TimeStart=%d&TimeEnd=%d",
 		depID,
@@ -333,155 +343,122 @@ func checkDepartActivityTime(t *testing.T,
 		maxTime,
 	)
 
-	bts, err := client.MakeRequest(http.MethodGet, path, headers, nil)
+	bts, err := s.client.MakeRequest(http.MethodGet, path, headers, nil)
 
 	if err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 
 	data := new(models.UserActivity)
 
 	if err = json.Unmarshal(bts, &data); err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 
-	checkTime(t, data.TotalTime, totalTime)
-	checkTime(t, data.ActiveTime, activeTime)
+	s.checkTime(data.TotalTime, totalTime)
+	s.checkTime(data.ActiveTime, activeTime)
 }
 
 // checkTime - compares to times.
 // First - time received from api.
-func checkTime(t *testing.T, first *int64, second int64) {
+func (s *smokeTest) checkTime(first *int64, second int64) {
 	if first != nil {
 		if *first != second {
-			t.Fatalf("invalid time, expected: %d, got %d", second, *first)
+			s.t.Fatalf("invalid time, expected: %d, got %d", second, *first)
 		}
 
 		return
 	}
 
 	if second != 0 {
-		t.Fatalf("invalid time, expected: %d, got %d", second, 0)
+		s.t.Fatalf("invalid time, expected: %d, got %d", second, 0)
 	}
 }
 
 // deleteByIds - deletes given ids from given handler.
-func deleteByIds(t *testing.T, client *http_client.NetHTTP, headers map[string]string, path string, ids []int64) {
+func (s *smokeTest) deleteByIds(headers map[string]string, path string, ids []int64) {
 	log.Println("TEST: Deleting objects by ID in path: " + path)
 
 	for _, id := range ids {
 		path := fmt.Sprintf("%s/%d", path, id)
-		_, err := client.MakeRequest(http.MethodDelete, path, headers, nil)
+		_, err := s.client.MakeRequest(http.MethodDelete, path, headers, nil)
 
 		if err != nil {
-			t.Fatal(err)
+			s.t.Fatal(err)
 		}
 	}
 }
 
 // deleteObjects - deletes all created objects.
-func deleteObjects(t *testing.T,
-	client *http_client.NetHTTP,
-	headers map[string]string,
-	deps []models.Department,
-	users []models.User,
-	activities []models.Activity,
-) {
+func (s *smokeTest) deleteObjects(ld *loadData) {
 	log.Println("TEST: Deleting created objects...")
 
-	depsID := make([]int64, len(deps))
+	depsID := make([]int64, len(ld.deps))
 
-	for id, d := range deps {
+	for id, d := range ld.deps {
 		depsID[id] = d.DepartmentID
 	}
 
-	deleteByIds(t, client, headers, "http://localhost:9332/departments", depsID)
+	s.deleteByIds(ld.headers, "http://localhost:9332/departments", depsID)
 
-	usersID := make([]int64, len(users))
+	usersID := make([]int64, len(ld.users))
 
-	for id, u := range users {
+	for id, u := range ld.users {
 		usersID[id] = u.UserID
 	}
 
-	deleteByIds(t, client, headers, "http://localhost:9332/users", usersID)
+	s.deleteByIds(ld.headers, "http://localhost:9332/users", usersID)
 
-	actIds := make([]int64, len(activities))
+	actIds := make([]int64, len(ld.act))
 
-	for id, act := range activities {
+	for id, act := range ld.act {
 		actIds[id] = act.RecordID
 	}
 
-	deleteByIds(t, client, headers, "http://localhost:9332/activities", actIds)
-}
-
-// functionalCheck - base functional check for api.
-// No need to return errors, could just t.Fatal(), to get full trace.
-func functionalCheck(t *testing.T, wg *sync.WaitGroup) {
-	log.Println("TEST: TEST: Starting check...")
-	defer wg.Done()
-
-	client := http_client.NewHTTPClient()
-
-	userBts := getTestAdmin(t)
-	headers := registerAndLogin(t, client, userBts)
-
-	depIds := addDepartments(t, client, headers)
-	users := addUsers(t, client, headers, depIds)
-	activities := addActivities(t, client, headers, users)
-
-	checkUserActivityTime(t, client, headers, activities)
-	checkDepartActivityTime(t, client, headers, activities, users, depIds[0].DepartmentID)
-
-	deleteObjects(t, client, headers, depIds, users, activities)
-	unregister(t, client, headers, userBts)
-
-	_, err := login(t, client, userBts)
-	if err == nil {
-		t.Fatal("User wasn't unregistered")
-	}
+	s.deleteByIds(ld.headers, "http://localhost:9332/activities", actIds)
 }
 
 // checkDeparts - checks if returned departs are equal to loaded departs.
-func checkDeparts(t *testing.T, departs []models.Department, client *http_client.NetHTTP, headers map[string]string) {
+func (s *smokeTest) checkDeparts(deps []*models.Department, headers map[string]string) {
 	log.Println("Checking if returned departs are equal to loaded departs.")
-	bts, err := client.MakeRequest(http.MethodGet, "http://localhost:9332/departments", headers, nil)
+	bts, err := s.client.MakeRequest(http.MethodGet, "http://localhost:9332/departments", headers, nil)
 
 	if err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 
-	data := make([]models.Department, 0)
+	data := make([]*models.Department, 0)
 
 	if err = json.Unmarshal(bts, &data); err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 
 	sort.Slice(data, func(i, j int) bool {
 		return data[i].DepartmentID < data[j].DepartmentID
 	})
 
-	sort.Slice(departs, func(i, j int) bool {
-		return departs[i].DepartmentID < departs[j].DepartmentID
+	sort.Slice(deps, func(i, j int) bool {
+		return deps[i].DepartmentID < deps[j].DepartmentID
 	})
 
-	if !reflect.DeepEqual(departs, data) {
-		t.Fatalf("Departments doesn't match, lenR: %d, lenL: %d", len(departs), len(data))
+	if !reflect.DeepEqual(deps, data) {
+		s.t.Fatalf("Departments doesn't match, lenRecieved: %d, lenLoaded: %d", len(data), len(deps))
 	}
 }
 
 // checkDeparts - checks if returned users are equal to loaded users.
-func checkUsers(t *testing.T, users []models.User, client *http_client.NetHTTP, headers map[string]string) {
+func (s *smokeTest) checkUsers(users []*models.User, headers map[string]string) {
 	log.Println("Checking if returned users are equal to loaded users.")
-	bts, err := client.MakeRequest(http.MethodGet, "http://localhost:9332/users", headers, nil)
+	bts, err := s.client.MakeRequest(http.MethodGet, "http://localhost:9332/users", headers, nil)
 
 	if err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 
-	data := make([]models.User, 0)
+	data := make([]*models.User, 0)
 
 	if err = json.Unmarshal(bts, &data); err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 
 	sort.Slice(data, func(i, j int) bool {
@@ -493,23 +470,23 @@ func checkUsers(t *testing.T, users []models.User, client *http_client.NetHTTP, 
 	})
 
 	if !reflect.DeepEqual(users, data) {
-		t.Fatalf("Users doesn't match, lenR: %d, lenL: %d", len(users), len(data))
+		s.t.Fatalf("Users doesn't match, lenRecieved: %d, lenLoaded: %d", len(data), len(users))
 	}
 }
 
 // checkDeparts - checks if returned activities are equal to loaded activities.
-func checkActivities(t *testing.T, act []models.Activity, client *http_client.NetHTTP, headers map[string]string) {
+func (s *smokeTest) checkActivities(act []*models.Activity, headers map[string]string) {
 	log.Println("Checking if returned activities are equal to loaded activities.")
-	bts, err := client.MakeRequest(http.MethodGet, "http://localhost:9332/activities", headers, nil)
+	bts, err := s.client.MakeRequest(http.MethodGet, "http://localhost:9332/activities", headers, nil)
 
 	if err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 
-	data := make([]models.Activity, 0)
+	data := make([]*models.Activity, 0)
 
 	if err = json.Unmarshal(bts, &data); err != nil {
-		t.Fatal(err)
+		s.t.Fatal(err)
 	}
 
 	sort.Slice(data, func(i, j int) bool {
@@ -521,55 +498,114 @@ func checkActivities(t *testing.T, act []models.Activity, client *http_client.Ne
 	})
 
 	if !reflect.DeepEqual(act, data) {
-		t.Fatalf("Activities doesn't match, lenR: %d, lenL: %d", len(act), len(data))
+		s.t.Fatalf("Activities doesn't match, lenRecieved: %d, lenLoaded: %d", len(data), len(act))
 	}
 }
 
-// TODO: Requires clean database!!!!!!!!
-// TODO: Mock database and implement unit tests
-func getHandlersCheck(t *testing.T) {
-	client := http_client.NewHTTPClient()
+// checkDelete - checks if all data were successfully deleted
+func (s *smokeTest) checkDelete(headers map[string]string) {
+	log.Println("Checking for deletion...")
 
-	userBts := getTestAdmin(t)
-	headers := registerAndLogin(t, client, userBts)
-
-	deps := addDepartments(t, client, headers)
-	users := addUsers(t, client, headers, deps)
-	activities := addActivities(t, client, headers, users)
-
-	checkDeparts(t, deps, client, headers)
-	checkUsers(t, users, client, headers)
-	checkActivities(t, activities, client, headers)
-
-	deleteObjects(t, client, headers, deps, users, activities)
-	unregister(t, client, headers, userBts)
+	s.checkDeparts(make([]*models.Department, 0), headers)
+	s.checkUsers(make([]*models.User, 0), headers)
+	s.checkActivities(make([]*models.Activity, 0), headers)
 }
 
-// Base functional test.
-// No need to check delete, because getHandlersCheck will fail if functionalCheck doesn't delete it's data
-func Test_AAPI(t *testing.T) {
+// TestRunner - generates random data, passes it to test scenario, and executes it
+// Deletes all data afterwards
+func (s *smokeTest) TestRunner(testCase testRunner) {
+	log.Println("TEST: Starting test runner...")
+
+	userBts := s.getTestAdmin()
+	headers := s.registerAndLogin(userBts)
+
+	deps := s.addDepartments(headers)
+	users := s.addUsers(headers, deps)
+	activities := s.addActivities(headers, users)
+
+	ld := &loadData{
+		deps:    deps,
+		users:   users,
+		act:     activities,
+		headers: headers,
+	}
+
+	testCase(ld)
+
+	s.deleteObjects(ld)
+	s.unregister(headers, userBts)
+
+	_, err := s.login(userBts)
+	if err == nil {
+		s.t.Fatal("User wasn't unregistered")
+	}
+}
+
+// TestTimeCalc - checks time calculations.
+// No need to return errors, could just t.Fatal(), to get full trace.
+func (s *smokeTest) TestTimeCalc(ld *loadData) {
+	log.Println("TEST: Starting time test...")
+
+	s.checkUserActivityTime(ld.act, ld.headers)
+	s.checkDepartActivityTime(ld.act, ld.users, ld.deps[0].DepartmentID, ld.headers)
+}
+
+// TestGet - tests all GET handlers.
+// No need to return errors, could just t.Fatal(), to get full trace.
+func (s *smokeTest) TestGet(ld *loadData) {
+	log.Println("TEST: Starting GET/DELETE check...")
+
+	s.checkDeparts(ld.deps, ld.headers)
+	s.checkUsers(ld.users, ld.headers)
+	s.checkActivities(ld.act, ld.headers)
+}
+
+// RunMultiple - allows to wait for multiple routines to exit
+func (s *smokeTest) RunMultiple(wg *sync.WaitGroup, testCase testRunner) {
+	defer wg.Done()
+	s.TestRunner(testCase)
+}
+
+func RunSmokeTest(t *testing.T) {
 	// Wait group to sync diff clients.
 	var wg sync.WaitGroup
-	srv := control.NewAAService(&config)
-	go srv.Run()
 
-	// Requires clean database!!!!!!!!
 	for i := 0; i < 3; i++ {
-		testName := fmt.Sprintf("Test: %d", i)
+		testName := fmt.Sprintf("Smoke_test_%d", i)
+		client := http_client.NewHTTPClient()
+
 		wg.Add(1)
 
 		// Run clients
 		go t.Run(testName, func(t *testing.T) {
-			functionalCheck(t, &wg)
+			test := newSmokeTest(client, t)
+			test.RunMultiple(&wg, test.TestTimeCalc)
 		})
 	}
+	// Wait for clients.
+	wg.Wait()
 
-	wg.Wait() // Wait for clients.
-
-	// Requires clean database!!!!!!!!
-	t.Run("GET handlers check", func(t *testing.T) {
-		getHandlersCheck(t)
+	// No need for DELETE test, if not all objects were deleted - this test fill fall
+	t.Run("DET/DELETE_test", func(t *testing.T) {
+		test := newSmokeTest(http_client.NewHTTPClient(), t)
+		test.TestRunner(test.TestGet)
 	})
+}
+
+// Base smoke test.
+func Test_AAPI(t *testing.T) {
+	// Since conn string for SQLite is it's path - generate tmp db in curr dir, and delete it after test
+	config.ConnString = uuid.New().String() + ".db"
+	defer func() {
+		if err := os.Remove(config.ConnString); err != nil {
+			t.Error(err)
+		}
+	}()
+	// Run service for test
+	srv := control.NewAAService(&config)
+	go srv.Run()
+
+	RunSmokeTest(t)
 
 	srv.Stop()
 }

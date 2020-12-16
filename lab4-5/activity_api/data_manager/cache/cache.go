@@ -1,6 +1,10 @@
+// Can't create common "core" here like in SQL,
+// due to cache client doesn't have common connection interface
+// (and i (cant/don't want to thinks how to) create it)
 package cache
 
 import (
+	"activity_api/data_manager/cache/cache_mock"
 	"activity_api/data_manager/cache/redis"
 	"context"
 	"github.com/sirupsen/logrus"
@@ -8,7 +12,8 @@ import (
 )
 
 const (
-	Redis = iota
+	ICacheMock = iota
+	Redis      = iota
 	// Memcache
 	// ...
 )
@@ -41,10 +46,10 @@ func NewCacheManager(
 	logger logrus.FieldLogger,
 ) ICacheManager {
 	switch cacheType {
+	case ICacheMock:
+		return cache_mock.NewCacheMock(logger)
 	case Redis:
 		return redis.NewRedisManager(cacheConfig.Address, cacheConfig.Password, cacheConfig.DB, ctx, logger)
-	//case Memcache:
-	//	...
 	default:
 		logger.WithField("func", "NewCacheManager").
 			Warnf("Unsupported cacheType: %d, using default: Redis", Redis)

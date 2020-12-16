@@ -1,4 +1,5 @@
 {
+  "CacheType" : 1,
   "DbType" : 0,
   "ConnString" : "AAServiceDB.db",
   "Addr" : "0.0.0.0:9332",

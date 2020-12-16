@@ -1,12 +1,8 @@
 package control
 
 import (
+	"activity_api/common/key_generator"
 	"activity_api/data_manager/cache"
-	"bytes"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"os"
 )
@@ -23,55 +19,21 @@ type iManageable interface {
 
 // AAServiceConfig - config for AAService
 type AAServiceConfig struct {
+	CacheType int
+
 	DbType     int    // db type, 0 - SQLite
 	ConnString string // Conn string to DB
 	Addr       string // Addr of service to listen
 
 	LogLevel uint32 // Log level for logrus
-	LogFile  string // File to log in // temporary unused
+	LogFile  string // File to log in // temporary unused, I didn't write log to a file for now
 
 	Cache *cache.ICacheConfig // Config for cache manager
 }
 
-// generateKey - generates RSA public and private keys that will be used in auth.
-func generateKey() (string, string, error) {
-	private, err := rsa.GenerateKey(rand.Reader, 2048) // Generate rsa private key
-
-	if err != nil {
-		return "", "", err
-	}
-	// Create buffer for public key
-	publicOut := bytes.NewBuffer(nil)
-	// Write public pem key from private key with PKCS1
-	if err := pem.Encode(
-		publicOut,
-		&pem.Block{
-			Type:  "PUBLIC KEY",
-			Bytes: x509.MarshalPKCS1PublicKey(&private.PublicKey),
-		},
-	); err != nil {
-		return "", "", err
-	}
-
-	// Create buffer for private key
-	privateOut := bytes.NewBuffer(nil)
-	// Write private pem key from private key with PKCS1
-	if err = pem.Encode(
-		privateOut,
-		&pem.Block{
-			Type:  "PRIVATE KEY",
-			Bytes: x509.MarshalPKCS1PrivateKey(private),
-		},
-	); err != nil {
-		return "", "", err
-	}
-	// Return keys as strings
-	return privateOut.String(), publicOut.String(), nil
-}
-
 // Set keys to env of the project
 func setKeys() error {
-	private, public, err := generateKey()
+	private, public, err := key_generator.GenerateKey()
 
 	if err != nil {
 		return fmt.Errorf("generateKey(): %w", err)
@@ -88,6 +50,7 @@ func setKeys() error {
 	return nil
 }
 
+// init - inits keys before start.
 func init() {
 	if err := setKeys(); err != nil {
 		panic(err)

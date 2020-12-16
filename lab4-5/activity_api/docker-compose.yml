@@ -12,6 +12,7 @@ services:
     build: .
     # tag an image to avoid unnecessary image rebuilding 
     image: activity_api:latest
+    # map port
     ports:
       - "9332:9332"
     # Launch Redis first
@@ -27,3 +28,4 @@ services:
     command: redis-server --requirepass pass_for_development_purposes_only
     ports:
       - "6379:6379"
+# I didn't specify connections/links because docker should take care of it by itself

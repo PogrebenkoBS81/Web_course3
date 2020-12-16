@@ -2,7 +2,7 @@ package core
 
 import "activity_api/common/models"
 
-// TODO: Add modify(update) queries
+// TODO: Add "update" queries
 // TODO: Segregate interface into something like: UserManager, DepartmentManager, etc
 // ISQLDatabase - database interface for AAService
 type ISQLDatabase interface {

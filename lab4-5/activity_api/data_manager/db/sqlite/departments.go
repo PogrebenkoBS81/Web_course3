@@ -47,7 +47,7 @@ func (s *SQLite) GetDepartments() ([]*models.Department, error) {
 func (s *SQLite) GetDepartment(departID string) (*models.Department, error) {
 	entry := s.logger.WithField("func", "GetDepartment")
 
-	entry.Debugf("Getting department with id: %d", departID)
+	entry.Debugf("Getting department with id: %s", departID)
 	department := new(models.Department)
 
 	if err := s.Pick(department, departmentGet, departID); err != nil {
@@ -58,7 +58,7 @@ func (s *SQLite) GetDepartment(departID string) (*models.Department, error) {
 		return nil, fmt.Errorf("SQLite s.Pick(), departmentCreate: %w", err)
 	}
 
-	entry.Debugf("Retrieved department with id %d: %+v", departID, *department)
+	entry.Debugf("Retrieved department with id %s: %+v", departID, *department)
 	return department, nil
 }
 
