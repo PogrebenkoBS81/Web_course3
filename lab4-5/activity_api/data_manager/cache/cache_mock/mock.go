@@ -46,6 +46,10 @@ func (m *CacheMock) Restart() error {
 func (m *CacheMock) Get(key string) (string, error) {
 	m.mtx.RLock()
 	defer m.mtx.RUnlock()
+	// Same as Redis checks, don't need it, but let it be
+	if m.fields == nil {
+		return "", errors.New("mock 'connection' doesn't exist")
+	}
 
 	m.logger.WithField("func", "Get").Debugf("Getting value %s from cache mock", key)
 
@@ -60,6 +64,11 @@ func (m *CacheMock) Get(key string) (string, error) {
 func (m *CacheMock) Set(key string, value interface{}, _ time.Duration) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
+
+	// Same as Redis checks, don't need it, but let it be
+	if m.fields == nil {
+		return errors.New("mock 'connection' doesn't exist")
+	}
 
 	data, ok := value.(string)
 	if !ok {
@@ -79,6 +88,11 @@ func (m *CacheMock) Del(keys ...string) error {
 	defer m.mtx.Unlock()
 
 	m.logger.WithField("func", "Del").Debugf("Deleting values %v from cache mock", keys)
+
+	// Same as Redis checks, don't need it, but let it be
+	if m.fields == nil {
+		return errors.New("mock 'connection' doesn't exist")
+	}
 
 	for _, key := range keys {
 		delete(m.fields, key)

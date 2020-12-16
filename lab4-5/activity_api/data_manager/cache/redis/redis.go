@@ -66,6 +66,10 @@ func (r *Redis) Open() error {
 func (r *Redis) open() error {
 	entry := r.logger.WithField("func", "open")
 	entry.Info("Opening new Redis connection...")
+	// Don't think that this will ever happen, but I'd better be sure
+	if r.redis != nil {
+		return errors.New("redis connection already exist")
+	}
 
 	r.redis = redis.NewClient(&redis.Options{
 		Addr:     r.Addr,
@@ -114,6 +118,10 @@ func (r *Redis) OK() error {
 
 	r.logger.WithField("func", "OK").Debug("Checking Redis connection...")
 
+	if r.redis == nil {
+		return errors.New("redis connection doesn't exist")
+	}
+
 	// TODO: if OK() will be used not only in pinger - create OK flag to reduce ping overhead.
 	if _, err := r.redis.Ping(r.ctx).Result(); err != nil {
 		return fmt.Errorf("redis r.redis.Ping(): %w", err)
@@ -135,6 +143,11 @@ func (r *Redis) Set(key string, value interface{}, expiration time.Duration) err
 	defer r.mtx.RUnlock()
 
 	r.logger.WithField("func", "Set").Debug("Setting new key to Redis:", key)
+
+	if r.redis == nil {
+		return errors.New("redis connection doesn't exist")
+	}
+
 	rtCreated, err := r.redis.Set(r.ctx, key, value, expiration).Result()
 
 	if err != nil {
@@ -154,6 +167,11 @@ func (r *Redis) Get(key string) (string, error) {
 	defer r.mtx.RUnlock()
 
 	r.logger.WithField("func", "Get").Debug("Getting key from Redis:", key)
+
+	if r.redis == nil {
+		return "", errors.New("redis connection doesn't exist")
+	}
+
 	data, err := r.redis.Get(r.ctx, key).Result()
 
 	if err != nil {
@@ -169,6 +187,11 @@ func (r *Redis) Del(keys ...string) error {
 	defer r.mtx.RUnlock()
 
 	r.logger.WithField("func", "Del").Debug("Deleting keys from Redis:", keys)
+
+	if r.redis == nil {
+		return errors.New("redis connection doesn't exist")
+	}
+
 	deletedRt, err := r.redis.Del(r.ctx, keys...).Result()
 
 	if err != nil {
