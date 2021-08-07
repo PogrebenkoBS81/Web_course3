@@ -48,14 +48,6 @@ func EnsureAbsPath(toCheck string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("os.Getwd(): %w", err)
 	}
-	// Check that given path is abs
-	if abs := filepath.IsAbs(toCheck); !abs {
-		toCheck, err = filepath.Abs(toCheck)
-
-		if err != nil {
-			return "", fmt.Errorf("filepath.Abs(): %w", err)
-		}
-	}
 
 	return filepath.Join(dir, toCheck), nil
 }

@@ -35,7 +35,7 @@ type Server struct {
 func NewServer(host string, port, interval int) *Server {
 	return &Server{
 		// it's possible to wrap TimeManager and ClientManager with interface,
-		// so they could be easy replaceable, but it would be overkill for this lab
+		// so they could be easy replaceable, but it would be an overkill for this lab
 		TimeManager:   newTimeManager(interval),
 		ClientManager: newClientManager(),
 		// It's possible to pass it via CLI and validate it,
@@ -146,8 +146,8 @@ func (s *Server) handleClient(ctx context.Context, conn net.Conn) {
 	}
 
 	ready := make(chan bool, 1)
-	hash := s.addClient(req.ClientName, conn.RemoteAddr().String(), s.getTime(), ready)
-	defer s.cleanClient(conn, hash)
+	clientKey := s.addClient(req.ClientName, conn.RemoteAddr().String(), s.getTime(), ready)
+	defer s.cleanClient(conn, clientKey)
 
 	s.processClient(ctx, conn, ready)
 }
@@ -195,13 +195,13 @@ func (s *Server) isAlive(c net.Conn) bool {
 }
 
 // cleanClient - cleans client data after it left.
-func (s *Server) cleanClient(conn net.Conn, clientHash string) {
+func (s *Server) cleanClient(conn net.Conn, clientKey string) {
 	log.Printf("Client %s, closing connection...", conn.RemoteAddr().String())
 	if err := conn.Close(); err != nil {
 		log.Println(err)
 	}
 
-	if err := s.delClient(clientHash); err != nil {
+	if err := s.delClient(clientKey); err != nil {
 		log.Println("ERROR: error deleting client,", err)
 	}
 }

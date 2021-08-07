@@ -1,13 +1,10 @@
 package server
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"log"
-	"strconv"
 	"sync"
 )
 
@@ -38,41 +35,36 @@ func newClientManager() *ClientManager {
 	}
 }
 
-// addClient - adds new client to the map by the generated hash.
+// addClient - adds new client to the map by the host - port value.
 func (c *ClientManager) addClient(name, addr string, time int64, ch chan<- bool) string {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	log.Println("Adding new client:", name)
-
-	// too lazy to use UUID here, hash is fine.
-	keyString := strconv.FormatInt(time, 10) + name + addr
-	uniqueKey := md5.Sum([]byte(keyString))
-	hash := hex.EncodeToString(uniqueKey[:])
-
-	c.clients[hash] = &clientData{
+	// Since host:port value is unique, no collisions is possible.
+	c.clients[addr] = &clientData{
 		ready: ch,
 		name:  name,
 		ip:    addr,
 		time:  time,
 	}
 
-	return hash
+	return addr
 }
 
 // delClient - removes client from map.
-func (c *ClientManager) delClient(clientHash string) error {
+func (c *ClientManager) delClient(clientKey string) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	val := c.clients[clientHash]
+	val := c.clients[clientKey]
 	if val == nil {
-		return errors.New(fmt.Sprintf("client with hash %s dosen't exists.", clientHash))
+		return errors.New(fmt.Sprintf("client with key %s dosen't exists.", clientKey))
 	}
 
 	log.Println("Removing client:", val.name)
 
-	delete(c.clients, clientHash)
+	delete(c.clients, clientKey)
 
 	return nil
 }

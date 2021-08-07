@@ -1,6 +1,8 @@
 package core
 
-import "activity_api/common/models"
+import (
+	"activity_api/common/models"
+)
 
 // TODO: Add "update" queries
 // TODO: Segregate interface into something like: UserManager, DepartmentManager, etc

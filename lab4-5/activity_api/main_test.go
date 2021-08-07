@@ -381,10 +381,20 @@ func (s *smokeTest) deleteByIds(headers map[string]string, path string, ids []in
 
 	for _, id := range ids {
 		path := fmt.Sprintf("%s/%d", path, id)
-		_, err := s.client.MakeRequest(http.MethodDelete, path, headers, nil)
+		bts, err := s.client.MakeRequest(http.MethodDelete, path, headers, nil)
 
 		if err != nil {
 			s.t.Fatal(err)
+		}
+
+		id := new(models.ObjectID)
+
+		if err := json.Unmarshal(bts, id); err != nil {
+			s.t.Fatal(err)
+		}
+
+		if id.ID > 1 {
+			s.t.Fatal("More than 1 object were affected")
 		}
 	}
 }
@@ -502,15 +512,6 @@ func (s *smokeTest) checkActivities(act []*models.Activity, headers map[string]s
 	}
 }
 
-// checkDelete - checks if all data were successfully deleted
-func (s *smokeTest) checkDelete(headers map[string]string) {
-	log.Println("Checking for deletion...")
-
-	s.checkDeparts(make([]*models.Department, 0), headers)
-	s.checkUsers(make([]*models.User, 0), headers)
-	s.checkActivities(make([]*models.Activity, 0), headers)
-}
-
 // TestRunner - generates random data, passes it to test scenario, and executes it
 // Deletes all data afterwards
 func (s *smokeTest) TestRunner(testCase testRunner) {
@@ -585,7 +586,7 @@ func RunSmokeTest(t *testing.T) {
 	// Wait for clients.
 	wg.Wait()
 
-	// No need for DELETE test, if not all objects were deleted - this test fill fall
+	// No need for DELETE test, if not all objects were deleted in prev test - this test fill fall
 	t.Run("DET/DELETE_test", func(t *testing.T) {
 		test := newSmokeTest(http_client.NewHTTPClient(), t)
 		test.TestRunner(test.TestGet)

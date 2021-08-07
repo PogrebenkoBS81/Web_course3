@@ -1,6 +1,6 @@
 # https://dantehranian.wordpress.com/2015/03/25/how-should-i-get-application-configuration-into-my-docker-containers/
 # Used 1 way due to API was already using config.json,
-# and I didn't have enough time for googling and implementing the best practices
+# TODO: REPLACE CONFIG WITH ENV VALUES. It is fast, safe, and it is the best practice.
 
 version: '3.9'
 services:
